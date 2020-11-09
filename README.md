@@ -1,0 +1,2 @@
+# litentry-node
+Substrate node
