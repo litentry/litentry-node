@@ -4,8 +4,34 @@
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, traits::Get};
-use frame_system::ensure_signed;
+
+use frame_system::{
+	self as system,
+	ensure_signed,
+	ensure_none,
+	offchain::{
+		AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SendSignedTransaction,
+		SignedPayload, SigningTypes, Signer, SubmitTransaction,
+	}
+};
+use frame_support::{
+	debug, dispatch,
+	dispatch::DispatchResult, decl_module, decl_storage, decl_event, decl_error,
+	traits::Get,
+};
+use sp_core::crypto::KeyTypeId;
+use sp_runtime::{
+	RuntimeDebug,
+	offchain::{http, Duration, storage::StorageValueRef},
+	traits::Zero,
+	transaction_validity::{
+		InvalidTransaction, ValidTransaction, TransactionValidity, TransactionSource,
+		TransactionPriority,
+	},
+};
+use codec::{Encode, Decode};
+use sp_std::vec::Vec;
+use lite_json::json::JsonValue;
 
 #[cfg(test)]
 mod mock;
@@ -13,10 +39,33 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"btc!");
+
+
+pub mod crypto {
+	use super::KEY_TYPE;
+	use sp_runtime::{
+		app_crypto::{app_crypto, sr25519},
+		traits::Verify,
+	};
+	use sp_core::sr25519::Signature as Sr25519Signature;
+	app_crypto!(sr25519, KEY_TYPE);
+
+	pub struct TestAuthId;
+	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature> for TestAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+}
+
 /// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Trait: frame_system::Trait {
+pub trait Trait: CreateSignedTransaction<Call<Self>> {
+	// type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
+
 	/// Because this pallet emits events, it depends on the runtime's definition of an event.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type Call: From<Call<Self>>;
 }
 
 // The pallet's runtime storage items.
@@ -63,6 +112,10 @@ decl_module! {
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 
+		fn offchain_worker(block: T::BlockNumber) {
+			debug::info!("Hello World.");
+		}
+
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[weight = 10_000 + T::DbWeight::get().writes(1)]
@@ -99,5 +152,37 @@ decl_module! {
 				},
 			}
 		}
+	}
+}
+
+
+#[allow(deprecated)] // ValidateUnsigned
+impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
+	type Call = Call<T>;
+
+	/// Validate unsigned call to this module.
+	///
+	/// By default unsigned transactions are disallowed, but implementing the validator
+	/// here we make sure that some particular calls (the ones produced by offchain worker)
+	/// are being whitelisted and marked as valid.
+	fn validate_unsigned(
+		_source: TransactionSource,
+		call: &Self::Call,
+	) -> TransactionValidity {
+		InvalidTransaction::Call.into()
+		// Firstly let's check that we call the right function.
+		// if let Call::submit_price_unsigned_with_signed_payload(
+		// 	ref payload, ref signature
+		// ) = call {
+		// 	let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
+		// 	if !signature_valid {
+		// 		return InvalidTransaction::BadProof.into();
+		// 	}
+		// 	Self::validate_transaction_parameters(&payload.block_number, &payload.price)
+		// } else if let Call::submit_price_unsigned(block_number, new_price) = call {
+		// 	Self::validate_transaction_parameters(block_number, new_price)
+		// } else {
+		// 	InvalidTransaction::Call.into()
+		// }
 	}
 }
