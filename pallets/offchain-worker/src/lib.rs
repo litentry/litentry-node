@@ -4,21 +4,23 @@
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 
+use sp_std::{prelude::*};
 
 use frame_system::{
-	ensure_signed,
-	offchain::CreateSignedTransaction,
+	ensure_signed, ensure_none,
+	offchain::{CreateSignedTransaction, SubmitTransaction},
 };
 use frame_support::{
 	debug, dispatch, decl_module, decl_storage, decl_event, decl_error,
 	traits::Get,
 };
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{
-	transaction_validity::{
-		InvalidTransaction, TransactionValidity, TransactionSource,
-	},
-};
+// use sp_runtime::{
+// 	transaction_validity::{
+// 		InvalidTransaction, TransactionValidity, TransactionSource,
+// 	},
+// };
+use sp_runtime::offchain::http;
 
 #[cfg(test)]
 mod mock;
@@ -70,10 +72,10 @@ decl_storage! {
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
 decl_event!(
-	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
+	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId, {
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
-		SomethingStored(u32, AccountId),
+		SomethingStored(u32, Option<AccountId>),
 	}
 );
 
@@ -98,8 +100,28 @@ decl_module! {
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 
+		#[weight = 10_000]
+		pub fn record_price(
+			origin,
+			// _block: T::BlockNumber,
+			price: u32
+		) -> dispatch::DispatchResult {
+			// Ensuring this is an unsigned tx
+			ensure_none(origin)?;
+			// Spit out an event and Add to storage
+			Self::deposit_event(RawEvent::SomethingStored(price, None));
+
+			Ok(())
+		}
+
+
 		fn offchain_worker(block: T::BlockNumber) {
+
 			debug::info!("Hello World.");
+			let result = Self::fetch_github_info();
+			if let Err(e) = result {
+				debug::info!("Hello World.{:?} ", e);
+			}
 		}
 
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
@@ -115,7 +137,7 @@ decl_module! {
 			Something::put(something);
 
 			// Emit an event.
-			Self::deposit_event(RawEvent::SomethingStored(something, who));
+			Self::deposit_event(RawEvent::SomethingStored(something, Some(who)));
 			// Return a successful DispatchResult
 			Ok(())
 		}
@@ -141,21 +163,55 @@ decl_module! {
 	}
 }
 
+impl<T: Trait> Module<T> {
+	fn fetch_github_info() -> Result<(), Error<T>> {
+		let _result = Self::fetch_json(b"btc");
+		
+		let call = Call::record_price(100);
+		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+		.map_err(|_| {
+			debug::error!("Failed in offchain_unsigned_tx");
+			<Error<T>>::StorageOverflow
+		})
 
-#[allow(deprecated)] // ValidateUnsigned
-impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
-	type Call = Call<T>;
+	}
 
-	/// Validate unsigned call to this module.
-	///
-	/// By default unsigned transactions are disallowed, but implementing the validator
-	/// here we make sure that some particular calls (the ones produced by offchain worker)
-	/// are being whitelisted and marked as valid.
-	fn validate_unsigned(
-		_source: TransactionSource,
-		_call: &Self::Call,
-	) -> TransactionValidity {
-		InvalidTransaction::Call.into()
+	fn fetch_json<'a>(remote_url: &'a [u8]) -> Result<(), &'static str> {
+		let remote_url_str = core::str::from_utf8(remote_url)
+			.map_err(|_| "Error in converting remote_url to string")?;
+	
+		let pending = http::Request::get(remote_url_str).send()
+			.map_err(|_| "Error in sending http GET request")?;
+	
+		let response = pending.wait()
+			.map_err(|_| "Error in waiting http response back")?;
+	
+		if response.code != 200 {
+			debug::warn!("Unexpected status code: {}", response.code);
+			return Err("Non-200 status code returned from http request");
+		}
+	
+		let _json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
+	
+		// print_bytes(&json_result);
+	
+		// let json_val: JsonValue = simple_json::parse_json(
+		//   &core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?)
+		//   .map_err(|_| "JSON parsing error")?;
+	
+		Ok(())
+	}
+}
+
+// #[allow(deprecated)] // ValidateUnsigned
+// impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
+// 	type Call = Call<T>;
+
+	// fn validate_unsigned(
+	// 	_source: TransactionSource,
+	// 	_call: &Self::Call,
+	// ) -> TransactionValidity {
+	// 	InvalidTransaction::Call.into()
 		// Firstly let's check that we call the right function.
 		// if let Call::submit_price_unsigned_with_signed_payload(
 		// 	ref payload, ref signature
@@ -170,5 +226,5 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 		// } else {
 		// 	InvalidTransaction::Call.into()
 		// }
-	}
-}
+// 	}
+// }
