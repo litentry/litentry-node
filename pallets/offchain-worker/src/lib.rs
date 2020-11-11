@@ -6,32 +6,19 @@
 
 
 use frame_system::{
-	self as system,
 	ensure_signed,
-	ensure_none,
-	offchain::{
-		AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SendSignedTransaction,
-		SignedPayload, SigningTypes, Signer, SubmitTransaction,
-	}
+	offchain::CreateSignedTransaction,
 };
 use frame_support::{
-	debug, dispatch,
-	dispatch::DispatchResult, decl_module, decl_storage, decl_event, decl_error,
+	debug, dispatch, decl_module, decl_storage, decl_event, decl_error,
 	traits::Get,
 };
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::{
-	RuntimeDebug,
-	offchain::{http, Duration, storage::StorageValueRef},
-	traits::Zero,
 	transaction_validity::{
-		InvalidTransaction, ValidTransaction, TransactionValidity, TransactionSource,
-		TransactionPriority,
+		InvalidTransaction, TransactionValidity, TransactionSource,
 	},
 };
-use codec::{Encode, Decode};
-use sp_std::vec::Vec;
-use lite_json::json::JsonValue;
 
 #[cfg(test)]
 mod mock;
@@ -40,7 +27,6 @@ mod mock;
 mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"btc!");
-
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -167,7 +153,7 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	/// are being whitelisted and marked as valid.
 	fn validate_unsigned(
 		_source: TransactionSource,
-		call: &Self::Call,
+		_call: &Self::Call,
 	) -> TransactionValidity {
 		InvalidTransaction::Call.into()
 		// Firstly let's check that we call the right function.
