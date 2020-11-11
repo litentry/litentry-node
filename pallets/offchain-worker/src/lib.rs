@@ -5,6 +5,7 @@
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 
 use sp_std::{prelude::*};
+// use sp_arithmetic::traits::SaturatedConversion;
 
 use frame_system::{
 	ensure_signed, ensure_none,
@@ -15,6 +16,8 @@ use frame_support::{
 	traits::Get,
 };
 use sp_core::crypto::KeyTypeId;
+use simple_json::{self, json::JsonValue};
+
 // use sp_runtime::{
 // 	transaction_validity::{
 // 		InvalidTransaction, TransactionValidity, TransactionSource,
@@ -108,6 +111,7 @@ decl_module! {
 		) -> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
+			Something::set(Some(price));
 			// Spit out an event and Add to storage
 			Self::deposit_event(RawEvent::SomethingStored(price, None));
 
@@ -118,6 +122,7 @@ decl_module! {
 		fn offchain_worker(block: T::BlockNumber) {
 
 			debug::info!("Hello World.");
+			// Something::set(Some(block.saturated_into::<u32>()));
 			let result = Self::fetch_github_info();
 			if let Err(e) = result {
 				debug::info!("Hello World.{:?} ", e);
@@ -165,9 +170,15 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 	fn fetch_github_info() -> Result<(), Error<T>> {
-		let _result = Self::fetch_json(b"btc");
+		let result = Self::fetch_json(b"https://api.coincap.io/v2/assets/bitcoin");
+
+		let mut init = 10000;
+		match result {
+			Ok(_) => init = init + 1,
+			Err(_) => init = init - 1,
+		};
 		
-		let call = Call::record_price(100);
+		let call = Call::record_price(init);
 		SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 		.map_err(|_| {
 			debug::error!("Failed in offchain_unsigned_tx");
@@ -191,13 +202,13 @@ impl<T: Trait> Module<T> {
 			return Err("Non-200 status code returned from http request");
 		}
 	
-		let _json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
+		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
 	
 		// print_bytes(&json_result);
 	
-		// let json_val: JsonValue = simple_json::parse_json(
-		//   &core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?)
-		//   .map_err(|_| "JSON parsing error")?;
+		let _json_val: JsonValue = simple_json::parse_json(
+			&core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?)
+			.map_err(|_| "JSON parsing error")?;
 	
 		Ok(())
 	}
