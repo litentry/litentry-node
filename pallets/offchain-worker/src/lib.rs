@@ -18,12 +18,13 @@ use frame_support::{
 use sp_core::crypto::KeyTypeId;
 use simple_json::{self, json::JsonValue};
 
-// use sp_runtime::{
-// 	transaction_validity::{
-// 		InvalidTransaction, TransactionValidity, TransactionSource,
-// 	},
-// };
+use sp_runtime::{
+	transaction_validity::{
+		ValidTransaction, InvalidTransaction, TransactionValidity, TransactionSource, TransactionLongevity,
+	},
+};
 use sp_runtime::offchain::http;
+use codec::Encode;
 
 #[cfg(test)]
 mod mock;
@@ -51,7 +52,7 @@ pub mod crypto {
 }
 
 /// Configure the pallet by specifying the parameters and types on which it depends.
-pub trait Trait: CreateSignedTransaction<Call<Self>> {
+pub trait Trait: frame_system::Trait + CreateSignedTransaction<Call<Self>> {
 	// type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 
 	/// Because this pallet emits events, it depends on the runtime's definition of an event.
@@ -214,28 +215,29 @@ impl<T: Trait> Module<T> {
 	}
 }
 
-// #[allow(deprecated)] // ValidateUnsigned
-// impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
-// 	type Call = Call<T>;
+#[allow(deprecated)]
+impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
+  type Call = Call<T>;
 
-	// fn validate_unsigned(
-	// 	_source: TransactionSource,
-	// 	_call: &Self::Call,
-	// ) -> TransactionValidity {
-	// 	InvalidTransaction::Call.into()
-		// Firstly let's check that we call the right function.
-		// if let Call::submit_price_unsigned_with_signed_payload(
-		// 	ref payload, ref signature
-		// ) = call {
-		// 	let signature_valid = SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone());
-		// 	if !signature_valid {
-		// 		return InvalidTransaction::BadProof.into();
-		// 	}
-		// 	Self::validate_transaction_parameters(&payload.block_number, &payload.price)
-		// } else if let Call::submit_price_unsigned(block_number, new_price) = call {
-		// 	Self::validate_transaction_parameters(block_number, new_price)
-		// } else {
-		// 	InvalidTransaction::Call.into()
-		// }
-// 	}
-// }
+  #[allow(deprecated)]
+  fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+
+    match call {
+      Call::record_price(price) => Ok(ValidTransaction {
+        priority: 0,
+        requires: vec![],
+        provides: vec![(price).encode()],
+        longevity: TransactionLongevity::max_value(),
+        propagate: true,
+      }),
+    //   Call::record_agg_pp(block, sym, price) => Ok(ValidTransaction {
+    //     priority: 0,
+    //     requires: vec![],
+    //     provides: vec![(block, sym, price).encode()],
+    //     longevity: TransactionLongevity::max_value(),
+    //     propagate: true,
+    //   }),
+      _ => InvalidTransaction::Call.into()
+    }
+  }
+}

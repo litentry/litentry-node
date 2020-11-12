@@ -359,7 +359,7 @@ construct_runtime!(
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		// Include the custom logic from the template pallet in the runtime.
 		AccountLinkerModule: pallet_account_linker::{Module, Call, Storage, Event<T>},
-		OffchainWorkerModule: pallet_offchain_worker::{Module, Call, Storage, Event<T>},
+		OffchainWorkerModule: pallet_offchain_worker::{Module, Call, Storage, Event<T>, ValidateUnsigned},
 	}
 );
 
