@@ -9,6 +9,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod util;
+
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -40,6 +42,7 @@ decl_module! {
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 
+		/// separate sig to r, s, v because runtime only support array parameter with length <= 32
 		#[weight = 1]
 		pub fn link(
 			origin, 
@@ -56,6 +59,8 @@ decl_module! {
 			let b2 = timestamp.to_be_bytes();
 			let bytes = [b1, b2].concat();
 
+			// TODO: add check, add accountId, add prefix
+
 			let hash = sp_io::hashing::keccak_256(&bytes);
 
 			let mut msg = [0u8; 32];
@@ -65,13 +70,9 @@ decl_module! {
 			sig[0..32].copy_from_slice(&r[0..32]);
 			sig[32..64].copy_from_slice(&s[0..32]);
 			sig[64] = v;
-	
-			let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg)
-				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
-			let address = sp_io::hashing::keccak_256(&pubkey);
 
-			let mut addr = [0u8; 20];
-			addr[0..20].copy_from_slice(&address[12..32]);
+			let addr = util::addr_from_sig(msg, sig)
+				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 	
 			<EthereumLink<T>>::insert(who, addr);
 
