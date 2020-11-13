@@ -27,9 +27,6 @@ use sp_runtime::offchain::http;
 use codec::Encode;
 
 #[cfg(test)]
-mod mock;
-
-#[cfg(test)]
 mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"btc!");

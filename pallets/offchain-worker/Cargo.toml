@@ -19,7 +19,7 @@ sp-core = { version = "2.0.0", default-features = false }
 sp-io = { version = "2.0.0", default-features = false }
 sp-std = { version = "2.0.0", default-features = false }
 lite-json = { version = "0.1", default-features = false }
-
+parking_lot = "0.10.0"
 sp-runtime = { default-features = false, version = '2.0.0' }
 
 frame-support = { default-features = false, version = '2.0.0' }
