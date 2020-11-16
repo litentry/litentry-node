@@ -13,7 +13,7 @@ use frame_system::{
 };
 use frame_support::{
 	debug, dispatch, decl_module, decl_storage, decl_event, decl_error,
-	traits::Get,
+	traits::Get, ensure, storage::IterableStorageMap,
 };
 use sp_core::crypto::KeyTypeId;
 use simple_json::{self, json::JsonValue};
@@ -30,6 +30,11 @@ use codec::Encode;
 mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"btc!");
+
+// The link is ETHER_SCAN_PREFIX + Ethereum account + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
+pub const ETHER_SCAN_PREFIX: &str = "https://api.etherscan.io/api?module=account&action=balance&address=0x";
+pub const ETHER_SCAN_POSTFIX: &str = "&tag=latest&apikey=";
+pub const ETHER_SCAN_TOKEN: &str = "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB";
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -67,6 +72,7 @@ decl_storage! {
 		// Learn more about declaring storage items:
 		// https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
 		Something get(fn something): Option<u32>;
+		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
 	}
 }
 
@@ -102,6 +108,16 @@ decl_module! {
 		fn deposit_event() = default;
 
 		#[weight = 10_000]
+		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
+			let account = ensure_signed(origin)?;
+
+			ensure!(!ClaimAccountSet::<T>::contains_key(&account), Error::<T>::StorageOverflow);
+
+			<ClaimAccountSet<T>>::insert(&account, ());
+			Ok(())
+		}
+
+		#[weight = 10_000]
 		pub fn record_price(
 			origin,
 			// _block: T::BlockNumber,
@@ -118,14 +134,20 @@ decl_module! {
 
 
 		fn offchain_worker(block: T::BlockNumber) {
+			// Get the all accounts who ask for asset claims
+			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, v)| k).collect();
+			// Remove all claimed accounts
+			<ClaimAccountSet::<T>>::drain();
+			
+			// Get the Ethereum account from account linker interface
+			let fixed_account: [u8; 20] = [0; 20];
 
 			debug::info!("Hello World.");
 			// Something::set(Some(block.saturated_into::<u32>()));
-			let result = Self::fetch_github_info();
+			let result = Self::fetch_etherscan();
 			if let Err(e) = result {
 				debug::info!("Hello World.{:?} ", e);
 			}
-			let _result = Self::fetch_etherscan();
 		}
 
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
