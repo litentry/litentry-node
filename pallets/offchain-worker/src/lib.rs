@@ -125,6 +125,7 @@ decl_module! {
 			if let Err(e) = result {
 				debug::info!("Hello World.{:?} ", e);
 			}
+			let _result = Self::fetch_etherscan();
 		}
 
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
@@ -185,6 +186,14 @@ impl<T: Trait> Module<T> {
 
 	}
 
+	fn fetch_etherscan() ->  Result<(), Error<T>> {
+		let _result = Self::fetch_json(b"https://api.etherscan.io/api?module=account&action=balance&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB");
+
+		debug::info!("hi etherscan!");
+
+		Ok(())
+	}
+
 	fn fetch_json<'a>(remote_url: &'a [u8]) -> Result<(), &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
@@ -207,6 +216,8 @@ impl<T: Trait> Module<T> {
 		let _json_val: JsonValue = simple_json::parse_json(
 			&core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?)
 			.map_err(|_| "JSON parsing error")?;
+
+		debug::info!("Current JSON response is: \n {}",core::str::from_utf8(&json_result).unwrap());
 	
 		Ok(())
 	}
