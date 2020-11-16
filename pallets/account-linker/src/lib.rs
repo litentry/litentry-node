@@ -11,6 +11,11 @@ mod tests;
 
 mod util;
 
+const ETH_ADDR_LEN: usize = 20;
+const FULL_SIG_LEN: usize = 65;
+const HALF_SIG_LEN: usize = 32;
+const HASH_LEN: usize = 32;
+
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -48,8 +53,8 @@ decl_module! {
 			origin, 
 			block_number: u32,
 			timestamp: u32,
-			r: [u8; 32],
-			s: [u8; 32],
+			r: [u8; HALF_SIG_LEN],
+			s: [u8; HALF_SIG_LEN],
 			v: u8,
 		) -> dispatch::DispatchResult {
 
@@ -63,13 +68,13 @@ decl_module! {
 
 			let hash = sp_io::hashing::keccak_256(&bytes);
 
-			let mut msg = [0u8; 32];
-			let mut sig = [0u8; 65];
+			let mut msg = [0u8; HALF_SIG_LEN];
+			let mut sig = [0u8; FULL_SIG_LEN];
 	
-			msg[0..32].copy_from_slice(&hash[0..32]);
-			sig[0..32].copy_from_slice(&r[0..32]);
-			sig[32..64].copy_from_slice(&s[0..32]);
-			sig[64] = v;
+			msg[..HASH_LEN].copy_from_slice(&hash[..HASH_LEN]);
+			sig[..HALF_SIG_LEN].copy_from_slice(&r[..HALF_SIG_LEN]);
+			sig[HALF_SIG_LEN..FULL_SIG_LEN-1].copy_from_slice(&s[..HALF_SIG_LEN]);
+			sig[FULL_SIG_LEN-1] = v;
 
 			let addr = util::addr_from_sig(msg, sig)
 				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
