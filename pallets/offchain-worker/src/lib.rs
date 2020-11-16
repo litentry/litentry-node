@@ -144,7 +144,7 @@ decl_module! {
 
 			debug::info!("Hello World.");
 			// Something::set(Some(block.saturated_into::<u32>()));
-			let result = Self::fetch_etherscan();
+			let result = Self::fetch_etherscan(accounts);
 			if let Err(e) = result {
 				debug::info!("Hello World.{:?} ", e);
 			}
@@ -208,7 +208,18 @@ impl<T: Trait> Module<T> {
 
 	}
 
-	fn fetch_etherscan() ->  Result<(), Error<T>> {
+	fn fetch_etherscan(account_vec: Vec<T::AccountId>) ->  Result<(), Error<T>> {
+
+		//let mut account_cat_str: String  = ETHER_SCAN_PREFIX;
+
+    for _account in account_vec {
+			//account_cat_str.push_str(""); //core::str::from_utf8(account);
+		}
+
+		//account_cat_str += (ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN);
+
+		//debug::info!("current url is {}", account_cat_str);
+
 		let _result = Self::fetch_json(b"https://api.etherscan.io/api?module=account&action=balance&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB");
 
 		debug::info!("hi etherscan!");
