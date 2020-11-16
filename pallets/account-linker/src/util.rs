@@ -1,9 +1,11 @@
-pub fn addr_from_sig(msg: [u8; 32], sig: [u8; 65]) -> Result<[u8; 20], sp_io::EcdsaVerifyError> {
-	let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg)?;
-	let address = sp_io::hashing::keccak_256(&pubkey);
+use crate::{HASH_LEN, FULL_SIG_LEN, ETH_ADDR_LEN};
 
-	let mut addr = [0u8; 20];
-	addr[0..20].copy_from_slice(&address[12..32]);	
+pub fn addr_from_sig(msg: [u8; HASH_LEN], sig: [u8; FULL_SIG_LEN]) -> Result<[u8; ETH_ADDR_LEN], sp_io::EcdsaVerifyError> {
+	let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg)?;
+	let hashed_pk = sp_io::hashing::keccak_256(&pubkey);
+
+	let mut addr = [0u8; ETH_ADDR_LEN];
+	addr[..ETH_ADDR_LEN].copy_from_slice(&hashed_pk[(HASH_LEN-ETH_ADDR_LEN)..HASH_LEN]);	// 12:32
 	Ok(addr)
 }
 
