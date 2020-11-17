@@ -7,7 +7,7 @@ use frame_system::{
 };
 use frame_support::{
 	debug, dispatch, decl_module, decl_storage, decl_event, decl_error,
-	traits::Get, ensure, storage::IterableStorageMap,
+	ensure, storage::IterableStorageMap,
 };
 use sp_core::crypto::KeyTypeId;
 use lite_json::{self, json::JsonValue};
@@ -119,26 +119,26 @@ decl_module! {
 		// Trigger by offchain framework in each block
 		fn offchain_worker(block: T::BlockNumber) {
 			// Get the all accounts who ask for asset claims
-			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, v)| k).collect();
+			let _accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
 			// Remove all claimed accounts
 			<ClaimAccountSet::<T>>::drain();
 			
 			// Get the Ethereum account from account linker interface
-			let fixed_account: [u8; 20] = [0; 20];
+			let _fixed_account: [u8; 20] = [0; 20];
 
-			debug::info!("Hello World.");
+			debug::info!("Hello Offchain Worker.");
 			// Something::set(Some(block.saturated_into::<u32>()));
-			let result = Self::fetch_etherscan(accounts);
-			if let Err(e) = result {
-				debug::info!("Hello World.{:?} ", e);
-			}
+			// let result = Self::fetch_etherscan(accounts);
+			// if let Err(e) = result {
+			// 	debug::info!("Hello World.{:?} ", e);
+			// }
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
 
-	fn fetch_etherscan(account_vec: Vec<T::AccountId>) ->  Result<(), Error<T>> {
+	fn _fetch_etherscan(account_vec: Vec<T::AccountId>) ->  Result<(), Error<T>> {
 
 		for account in account_vec {
 			// Compose the web link
@@ -152,10 +152,10 @@ impl<T: Trait> Module<T> {
 			let result = Self::fetch_json(&link[..]);
 			match result {
 				
-				Ok(json_val) => {
+				Ok(_) => {
 					let init: u64 = 1000;
 					let call = Call::record_balance(account, init);
-					SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 					.map_err(|_| {
 						debug::error!("Failed in offchain_unsigned_tx");
 						<Error<T>>::StorageOverflow
@@ -190,7 +190,7 @@ impl<T: Trait> Module<T> {
 		Ok(balance.as_bytes().to_vec())
 	}
 
-	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
+	fn _parse_balance(price_str: &str) -> Option<Vec<char>> {
 		// {
 		// "status": "1",
 		// "message": "OK",
