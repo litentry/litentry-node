@@ -190,7 +190,7 @@ impl<T: Trait> Module<T> {
 		Ok(balance.as_bytes().to_vec())
 	}
 
-	fn _parse_balance(price_str: &str) -> Option<Vec<char>> {
+	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
 		// {
 		// "status": "1",
 		// "message": "OK",
