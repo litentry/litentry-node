@@ -76,15 +76,15 @@ decl_module! {
 			let addr = util::addr_from_sig(msg, sig)
 				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
-			let mut index = index as usize;
+			let index = index as usize;
 			let mut addrs = Self::eth_addresses(&account);
-			if addrs.len() < index {
-				index = addrs.len();
+			if (index >= addrs.len()) && (addrs.len() != 3) { // allow linking 3 eth addresses. TODO: do not use hard code
+				addrs.push(addr);
+			} else if (index >= addrs.len()) && (addrs.len() == 3) {
+				addrs[2] = addr;
+			} else {
+				addrs[index] = addr;
 			}
-			if index > 2 { // allow linking 3 eth addresses. TODO: do not use hard code
-				index = 2;
-			}
-			addrs[index] = addr;
 
 			<EthereumLink<T>>::insert(account, addrs);
 
