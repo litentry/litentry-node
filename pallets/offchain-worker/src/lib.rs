@@ -25,9 +25,10 @@ mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
-// https://api.etherscan.io/api?module=account&action=balance&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
-// The link is ETHER_SCAN_PREFIX + Ethereum account + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
-pub const ETHER_SCAN_PREFIX: &str = "https://api.etherscan.io/api?module=account&action=balance&address=0x";
+// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
+// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
+pub const ETHER_SCAN_PREFIX: &str = "https://api.etherscan.io/api?module=account&action=balancemulti&address=0x";
+pub const ETHER_SCAN_DELIMITER: &str = ",0x";
 pub const ETHER_SCAN_POSTFIX: &str = "&tag=latest&apikey=";
 pub const ETHER_SCAN_TOKEN: &str = "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB";
 
@@ -140,30 +141,42 @@ impl<T: Trait> Module<T> {
 
 	fn _fetch_etherscan(account_vec: Vec<T::AccountId>) ->  Result<(), Error<T>> {
 
-		for account in account_vec {
-			// Compose the web link
-			let mut link: Vec<u8> = Vec::new();
-			link.extend(ETHER_SCAN_POSTFIX.as_bytes());
+		// Compose the web link
+		let mut link: Vec<u8> = Vec::new();
+		link.extend(ETHER_SCAN_PREFIX.as_bytes());
+
+		for (i, account) in account_vec.iter().enumerate() {
+			
+			// Append delimiter if there are more than one accounts in the account_vec
+			if i >=1 {
+				link.extend(ETHER_SCAN_DELIMITER.as_bytes());
+			};
+
 			// let fixed_account: [u8; 20] = [0; 20];
 			link.extend(SAMPLE_ACCOUNT.as_bytes());
-			link.extend(ETHER_SCAN_POSTFIX.as_bytes());
-			link.extend(ETHER_SCAN_TOKEN.as_bytes());
+		}
 
-			let result = Self::fetch_json(&link[..]);
-			match result {
-				
-				Ok(_) => {
-					let init: u64 = 1000;
+		link.extend(ETHER_SCAN_POSTFIX.as_bytes());
+		link.extend(ETHER_SCAN_TOKEN.as_bytes());
+
+		let result = Self::fetch_json(&link[..]);
+		match result {
+			Ok(_) => {
+				let init: u64 = 1000;
+				for account in account_vec {
+					// TODO Look up each account's ethereum address and find its corresponding balance in result
+					//      Does rust for loop guarantee the iterating order?
 					let call = Call::record_balance(account, init);
 					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 					.map_err(|_| {
 						debug::error!("Failed in offchain_unsigned_tx");
 						<Error<T>>::StorageOverflow
 					});
-				},
-				Err(err) => debug::error!("Fetch json with error {}", err),
-			}
+				}
+			},
+			Err(err) => debug::error!("Fetch json with error {}", err),
 		}
+
 		Ok(())
 	}
 
@@ -188,6 +201,66 @@ impl<T: Trait> Module<T> {
 			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
 	
 		Ok(balance.as_bytes().to_vec())
+	}
+
+	fn parse_multi_balances(price_str: &str) -> Option<Vec<(Vec<char>,Vec<char>)>> {
+		// {
+		// "status": "1",
+		// "message": "OK",
+		// "result": 
+		//   [
+		//     {"account":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","balance":"3804372455842738500000001"},
+		//     {"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"2571179226430511381996287"}
+		//   ]
+		// }
+		let val = lite_json::parse_json(price_str);
+		let balances = val.ok().and_then(|v| match v {
+			JsonValue::Object(obj) => {
+				let mut chars = "result".chars();
+				obj.into_iter()
+					.find(|(k, _)| k.iter().all(|k| Some(*k) == chars.next()))
+					.and_then(|v| match v.1 {
+						JsonValue::Array(res_array) => {
+							let mut balances: Vec<(Vec<char>,Vec<char>)> = Vec::new();
+							for element in res_array {
+								match element {
+									JsonValue::Object(element_vec) => {
+										for pair in element_vec {
+											let mut eth_account: Vec<char> = Vec::new();
+											let mut eth_balance: Vec<char> = Vec::new();
+											let account_chars = "account".chars();
+											let balance_chars = "balance".chars();
+											let empty_chars = "".chars();
+											match pair.0 {
+												 account_chars => {eth_account = 
+													match pair.1 {
+														JsonValue::String(account) => account,
+														// TODO error handling?
+														_ => eth_account, 
+													}
+												},
+												 balance_chars => {eth_balance = match pair.1 {
+														JsonValue::String(balance) => balance,
+														// TODO error handling?
+														_ => eth_balance, 
+													}
+												},
+												_ => {},
+											}
+											balances.push((eth_account, eth_balance));
+										};
+									},
+									_ => ()
+								}
+							}
+							Some(balances)
+						},
+						_ => None,
+					})
+			},
+			_ => None
+		})?;
+		Some(balances)
 	}
 
 	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
