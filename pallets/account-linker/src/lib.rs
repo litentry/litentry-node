@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use codec::Encode;
 use sp_std::prelude::*;
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch};
 use frame_system::ensure_signed;
@@ -17,7 +18,7 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as TemplateModule {
+	trait Store for Module<T: Trait> as AccountLinker {
 		EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
 	}
 }
@@ -35,7 +36,8 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Trait> for enum Call where 
+		origin: T::Origin {
 		// Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
 
@@ -48,8 +50,7 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			index: u32,
-			block_number: u32,
-			timestamp: u32,
+			block_number: T::BlockNumber,
 			r: [u8; 32],
 			s: [u8; 32],
 			v: u8,
@@ -57,11 +58,21 @@ decl_module! {
 
 			let _ = ensure_signed(origin)?;
 
-			let b1 = block_number.to_be_bytes();
-			let b2 = timestamp.to_be_bytes();
-			let bytes = [b1, b2].concat();
+			let current_block_number = <frame_system::Module<T>>::block_number();
+			// TODO: check block number not expired
 
-			// TODO: add check, add accountId, add prefix
+			let b0 = b"Link Litentry: ";
+
+			let account_vec = account.encode(); // Warning: must be 32 bytes
+
+			let block_number_vec = block_number.encode(); // Warning: must be 4 bytes
+			
+			// let mut message_data = format!("Link Litentry: {}, {}", b1, b2);
+			// // let b2 = timestamp.to_be_bytes();
+			let mut bytes = [0u8; 51]; // TODO: need to change this if b0 changes
+			bytes[..15].copy_from_slice(b0);
+			bytes[15..47].copy_from_slice(&account_vec);
+			bytes[47..].copy_from_slice(&block_number_vec);
 
 			let hash = sp_io::hashing::keccak_256(&bytes);
 
