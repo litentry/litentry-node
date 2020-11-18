@@ -19,6 +19,7 @@ use sp_runtime::{
 };
 use sp_runtime::offchain::http;
 use codec::Encode;
+use account_linker;
 
 #[cfg(test)]
 mod tests;
