@@ -18,7 +18,7 @@ pub trait Trait: frame_system::Trait {
 
 decl_storage! {
 	trait Store for Module<T: Trait> as TemplateModule {
-		EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
+		pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
 	}
 }
 
