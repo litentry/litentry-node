@@ -19,7 +19,7 @@ use sp_runtime::{
 };
 use sp_runtime::offchain::http;
 use codec::Encode;
-use account_linker;
+use account_linker::EthereumLink;
 
 #[cfg(test)]
 mod tests;
@@ -121,12 +121,13 @@ decl_module! {
 		// Trigger by offchain framework in each block
 		fn offchain_worker(block: T::BlockNumber) {
 			// Get the all accounts who ask for asset claims
-			let _accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
+			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
 			// Remove all claimed accounts
 			<ClaimAccountSet::<T>>::drain();
 			
 			// Get the Ethereum account from account linker interface
 			let _fixed_account: [u8; 20] = [0; 20];
+			let _ = <EthereumLink<T>>::get(accounts[0]);
 
 			debug::info!("Hello Offchain Worker.");
 			// Something::set(Some(block.saturated_into::<u32>()));
