@@ -220,6 +220,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Parse the balance from ethscan response
+
 	fn parse_multi_balances(price_str: &str) -> Option<Vec<Vec<char>>> {
 		// {
 		// "status": "1",
@@ -231,47 +232,49 @@ impl<T: Trait> Module<T> {
 		//   ]
 		// }
 		let val = lite_json::parse_json(price_str);
-		let balance_chars = "balance".chars();
-		let balances = val.ok().and_then(|v| match v {
-			JsonValue::Object(obj) => {
-				let mut chars = "result".chars();
-				obj.into_iter()
-					.find(|(k, _)| k.iter().all(|k| Some(*k) == chars.next()))
-					.and_then(|v| match v.1 {
-						JsonValue::Array(res_array) => {
-							// Get the balance list 
-							let mut balance_vec: Vec<Vec<char>> = Vec::new();
-							for element in res_array {
-								match element {
-									JsonValue::Object(element_vec) => {
-										for pair in element_vec {											
-											match pair.0 {
-												// Match balance key
-												balance_chars => {
-													// Match balance value
-													match pair.1 {
-														// Put balance into vector
-														JsonValue::String(balance) => balance_vec.push(balance),
-														_ => (), 
-													}
-												},
-												_ => (),
-											}
-										};
-									},
-									_ => ()
-								}
-							}
-							Some(balance_vec)
-						},
-						_ => None,
+		let mut balance_vec: Vec<Vec<char>> = Vec::new();
+
+		let balances = val.ok().and_then(|v| { 
+				match v {
+				JsonValue::Object(obj) => {
+					obj.into_iter()
+						.find(|(k, _)|  {
+							let mut chars = "result".chars(); 
+							k.iter().all(|k| Some(*k) == chars.next())
 					})
-			},
-			_ => None
+					.and_then(|v|  { 
+						match v.1 {
+							JsonValue::Array(res_array) => {
+								for element in res_array {
+									match element {
+										JsonValue::Object(element_vec) => {
+											for pair in element_vec {			
+												let mut balance_chars = "balance".chars();		
+												if pair.0.iter().all(|k| Some(*k) == balance_chars.next()) {
+													match pair.1 {
+														JsonValue::String(balance) => balance_vec.push(balance),
+														_ => (),
+													}
+												}
+											};
+										},
+										_ => ()
+									}
+								}
+								Some(balance_vec)
+							},
+							_ => None,
+						}
+					})
+				},
+				_ => None
+			}
 		})?;
 
 		Some(balances)
 	}
+
+
 
 	// Parse a single balance from ethscan respose
 	fn parse_balance(price_str: &str) -> Option<Vec<char>> {

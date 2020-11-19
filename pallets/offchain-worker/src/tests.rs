@@ -162,8 +162,21 @@ fn test_chars_to_u64() {
 
 	let correct_balance = vec!['a', '2'];
 	assert_eq!(Err("Wrong u64 balance data format"), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+}
 
-
+#[test]
+fn test_parse_multi_balances() {
+	let double_balances = r#"
+	{
+	"status": "1",
+	"message": "OK",
+	"result": 
+		[
+			{"account":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","balance":"12"},
+			{"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"21"}
+		]
+	}"#;
+	assert_eq!(Some(vec![vec!['1', '2'], vec!['2', '1']]), <Module<TestRuntime>>::parse_multi_balances(double_balances));
 }
 
 // #[test]
