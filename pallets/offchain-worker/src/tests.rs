@@ -179,6 +179,18 @@ fn test_parse_multi_balances() {
 	assert_eq!(Some(vec![vec!['1', '2'], vec!['2', '1']]), <Module<TestRuntime>>::parse_multi_balances(double_balances));
 }
 
+#[test]
+fn test_parse_balance() {
+
+	let balance = r#"
+	{
+		"status": "1",
+		"message": "OK",
+		"result": "12"
+	}"#;
+	assert_eq!(Some(vec!['1', '2']), <Module<TestRuntime>>::parse_balance(balance));
+}
+
 // #[test]
 // fn test_offchain_unsigned_tx() {
 // 	let (mut t, pool_state, _offchain_state) = ExternalityBuilder::build();

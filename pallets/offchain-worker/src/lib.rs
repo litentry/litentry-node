@@ -220,7 +220,6 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Parse the balance from ethscan response
-
 	fn parse_multi_balances(price_str: &str) -> Option<Vec<Vec<char>>> {
 		// {
 		// "status": "1",
@@ -274,8 +273,6 @@ impl<T: Trait> Module<T> {
 		Some(balances)
 	}
 
-
-
 	// Parse a single balance from ethscan respose
 	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
 		// {
@@ -286,9 +283,11 @@ impl<T: Trait> Module<T> {
 		let val = lite_json::parse_json(price_str);
 		let balance = val.ok().and_then(|v| match v {
 			JsonValue::Object(obj) => {
-				let mut chars = "result".chars();
 				obj.into_iter()
-					.find(|(k, _)| k.iter().all(|k| Some(*k) == chars.next()))
+					.find(|(k, _)| { 
+						let mut chars = "result".chars();
+						k.iter().all(|k| Some(*k) == chars.next())
+					})
 					.and_then(|v| match v.1 {
 						JsonValue::String(balance) => Some(balance),
 						_ => None,
