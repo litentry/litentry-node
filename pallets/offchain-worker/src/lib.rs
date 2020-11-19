@@ -165,21 +165,27 @@ impl<T: Trait> Module<T> {
 		link.extend(ETHER_SCAN_TOKEN.as_bytes());
 
 		// Get the json
-		let result = Self::fetch_json(&link[..]);
-		match result {
-			Ok(_) => {
-				// Compute the balance from balances char vector
-				let init: u64 = 1000;
-				let call = Call::record_balance(account.clone(), init);
+		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::StorageOverflow)?;
+		
+		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::StorageOverflow)?;
+		let balances = Self::parse_multi_balances(response);
+
+		match balances {
+			Some(data) => {
+				let mut total_balance: u64 = 0;
+				for item in data {
+					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::StorageOverflow)?;
+					total_balance = total_balance + balance;
+				}
+				let call = Call::record_balance(account.clone(), total_balance);
 				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 				.map_err(|_| {
 					debug::error!("Failed in offchain_unsigned_tx");
 					<Error<T>>::StorageOverflow
 				});
 			},
-			Err(err) => debug::error!("Fetch json with error {}", err),
+			None => (),
 		}
-
 		Ok(())
 	}
 
@@ -255,6 +261,7 @@ impl<T: Trait> Module<T> {
 			},
 			_ => None
 		})?;
+
 		Some(balances)
 	}
 
@@ -280,6 +287,23 @@ impl<T: Trait> Module<T> {
 		Some(balance)
 	}
 
+	fn chars_to_u64(vec: Vec<char>) -> Result<u64, &'static str> {
+		let mut result: u64 = 0;
+		for item in vec {
+			let n = item.to_digit(10);
+			match n {
+				Some(i) => {
+					let i_64 = i as u64; 
+					result = result * 10 + i_64;
+					if result < i_64 {
+						return Err("Wrong u64 balance data format");
+					}
+				},
+				None => return Err("Wrong u64 balance data format"),
+			}
+		}
+		return Ok(result)
+	}
 }
 
 #[allow(deprecated)]
