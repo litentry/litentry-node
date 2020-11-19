@@ -19,7 +19,6 @@ use sp_runtime::{
 };
 use sp_runtime::offchain::http;
 use codec::Encode;
-use account_linker::EthereumLink;
 
 #[cfg(test)]
 mod tests;
@@ -59,14 +58,18 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 
 decl_storage! {
 	trait Store for Module<T: Trait> as OffchainWorkerModule {
+		/// Record how many claims from Litentry user
 		TotalClaims get(fn total_claims): u64;
+		/// Record the accounts send claims in latest block
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
+		/// Record account's ethereum balance
 		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => u64;
 	}
 }
 
 decl_event!(
 	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId, {
+		/// Event for account and its ethereum balance
 		BalanceGot(AccountId, u64),
 	}
 );
@@ -76,8 +79,8 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		/// Error names should be descriptive.
 		NoneValue,
-		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
+		/// Error number parsing.
+		InvalidNumber
 	}
 }
 
@@ -96,7 +99,7 @@ decl_module! {
 		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
 			let account = ensure_signed(origin)?;
 
-			ensure!(!ClaimAccountSet::<T>::contains_key(&account), Error::<T>::StorageOverflow);
+			ensure!(!ClaimAccountSet::<T>::contains_key(&account), Error::<T>::InvalidNumber);
 
 			<ClaimAccountSet<T>>::insert(&account, ());
 			Ok(())
@@ -125,8 +128,11 @@ decl_module! {
 			// Remove all claimed accounts
 			<ClaimAccountSet::<T>>::drain();
 
-			debug::info!("Hello Offchain Worker.");
-			Self::fetch_etherscan(accounts);
+			debug::info!("Start Offchain Worker.");
+			match Self::fetch_etherscan(accounts) {
+				Ok(()) => debug::info!("Offchain Worker end successfully."),
+				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
+			}
 		}
 	}
 }
@@ -165,23 +171,23 @@ impl<T: Trait> Module<T> {
 		link.extend(ETHER_SCAN_TOKEN.as_bytes());
 
 		// Get the json
-		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::StorageOverflow)?;
+		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
 		
-		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::StorageOverflow)?;
+		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
 		let balances = Self::parse_multi_balances(response);
 
 		match balances {
 			Some(data) => {
 				let mut total_balance: u64 = 0;
 				for item in data {
-					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::StorageOverflow)?;
+					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
 					total_balance = total_balance + balance;
 				}
 				let call = Call::record_balance(account.clone(), total_balance);
 				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 				.map_err(|_| {
 					debug::error!("Failed in offchain_unsigned_tx");
-					<Error<T>>::StorageOverflow
+					<Error<T>>::InvalidNumber
 				});
 			},
 			None => (),
@@ -189,6 +195,7 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
+	// Fetch json result from remote URL
 	fn fetch_json<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
@@ -212,6 +219,7 @@ impl<T: Trait> Module<T> {
 		Ok(balance.as_bytes().to_vec())
 	}
 
+	// Parse the balance from ethscan response
 	fn parse_multi_balances(price_str: &str) -> Option<Vec<Vec<char>>> {
 		// {
 		// "status": "1",
@@ -265,6 +273,7 @@ impl<T: Trait> Module<T> {
 		Some(balances)
 	}
 
+	// Parse a single balance from ethscan respose
 	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
 		// {
 		// "status": "1",
@@ -287,7 +296,8 @@ impl<T: Trait> Module<T> {
 		Some(balance)
 	}
 
-	fn chars_to_u64(vec: Vec<char>) -> Result<u64, &'static str> {
+	// U64 number string to u64
+	pub fn chars_to_u64(vec: Vec<char>) -> Result<u64, &'static str> {
 		let mut result: u64 = 0;
 		for item in vec {
 			let n = item.to_digit(10);

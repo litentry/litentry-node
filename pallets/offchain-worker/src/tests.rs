@@ -20,6 +20,7 @@ use sp_runtime::{
 };
 
 use crate as OffchainWorker;
+use account_linker;
 
 impl_outer_origin! {
 	pub enum Origin for TestRuntime where system = frame_system {}
@@ -29,6 +30,7 @@ impl_outer_event! {
 	pub enum TestEvent for TestRuntime {
 		frame_system<T>,
 		OffchainWorker<T>,
+		account_linker<T>,
 	}
 }
 
@@ -80,6 +82,10 @@ parameter_types! {
 impl Trait for TestRuntime {
 	// type AuthorityId = crypto::TestAuthId;
 	type Call = Call<TestRuntime>;
+	type Event = TestEvent;
+}
+
+impl account_linker::Trait for TestRuntime {
 	type Event = TestEvent;
 }
 
@@ -149,19 +155,31 @@ impl ExternalityBuilder {
 }
 
 #[test]
-fn test_offchain_unsigned_tx() {
-	let (mut t, pool_state, _offchain_state) = ExternalityBuilder::build();
+fn test_chars_to_u64() {
+	let correct_balance = vec!['1', '2'];
 
-	t.execute_with(|| {
-		// when
-		let num = 32;
-		let _acct: <TestRuntime as frame_system::Trait>::AccountId = Default::default();
-		<Module<TestRuntime>>::fetch_github_info().unwrap();
-		// then
-		let tx = pool_state.write().transactions.pop().unwrap();
-		assert!(pool_state.read().transactions.is_empty());
-		let tx = TestExtrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
-		assert_eq!(tx.call, <TestRuntime as Trait>::Call::record_price(num));
-	});
+	assert_eq!(Ok(12), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+
+	let correct_balance = vec!['a', '2'];
+	assert_eq!(Err("Wrong u64 balance data format"), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+
+
 }
+
+// #[test]
+// fn test_offchain_unsigned_tx() {
+// 	let (mut t, pool_state, _offchain_state) = ExternalityBuilder::build();
+
+// 	t.execute_with(|| {
+// 		// when
+// 		let num = 32;
+// 		let _acct: <TestRuntime as frame_system::Trait>::AccountId = Default::default();
+// 		<Module<TestRuntime>>::fetch_github_info().unwrap();
+// 		// then
+// 		let tx = pool_state.write().transactions.pop().unwrap();
+// 		assert!(pool_state.read().transactions.is_empty());
+// 		let tx = TestExtrinsic::decode(&mut &*tx).unwrap();
+// 		assert_eq!(tx.signature, None);
+// 		assert_eq!(tx.call, <TestRuntime as Trait>::Call::record_price(num));
+// 	});
+// }
