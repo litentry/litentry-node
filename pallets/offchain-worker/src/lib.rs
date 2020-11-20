@@ -68,9 +68,10 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId, {
+	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId, 
+					BlockNumber = <T as frame_system::Trait>::BlockNumber, {
 		/// Event for account and its ethereum balance
-		BalanceGot(AccountId, u64),
+		BalanceGot(AccountId, BlockNumber, u64),
 	}
 );
 
@@ -109,6 +110,7 @@ decl_module! {
 		pub fn record_balance(
 			origin,
 			account: T::AccountId,
+			block: T::BlockNumber,
 			price: u64
 		) -> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
@@ -116,7 +118,7 @@ decl_module! {
 			// Record the total claims processed
 			TotalClaims::put(Self::total_claims() + 1);
 			// Spit out an event and Add to storage
-			Self::deposit_event(RawEvent::BalanceGot(account, price));
+			Self::deposit_event(RawEvent::BalanceGot(account, block, price));
 
 			Ok(())
 		}
@@ -126,10 +128,10 @@ decl_module! {
 			// Get the all accounts who ask for asset claims
 			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
 			// Remove all claimed accounts
-			<ClaimAccountSet::<T>>::drain();
+			<ClaimAccountSet::<T>>::remove_all();
 
-			debug::info!("Start Offchain Worker.");
-			match Self::fetch_etherscan(accounts) {
+			debug::info!("Start Offchain Worker {} claims.", accounts.len());
+			match Self::fetch_etherscan(accounts, block) {
 				Ok(()) => debug::info!("Offchain Worker end successfully."),
 				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
 			}
@@ -139,17 +141,18 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
-	fn fetch_etherscan(account_vec: Vec<T::AccountId>) ->  Result<(), Error<T>> {
+	fn fetch_etherscan(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			Self::fetch_etherscan_account(account);
+			Self::fetch_etherscan_account(account, block);
 		}
 		Ok(())
 	}
 
 	// fetch an account
-	fn fetch_etherscan_account(account: &T::AccountId) ->  Result<(), Error<T>> {
+	fn fetch_etherscan_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		// Get all ethereum accounts linked to Litentry		
 		let eth_accounts = <account_linker::EthereumLink<T>>::get(account);
+		debug::info!("Offchain Worker account {:?} with {} eth accounts.", account, eth_accounts.len());
 
 		// Return if no ethereum account linked
 		if eth_accounts.len() == 0 {
@@ -183,7 +186,7 @@ impl<T: Trait> Module<T> {
 					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
 					total_balance = total_balance + balance;
 				}
-				let call = Call::record_balance(account.clone(), total_balance);
+				let call = Call::record_balance(account.clone(), block, total_balance);
 				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 				.map_err(|_| {
 					debug::error!("Failed in offchain_unsigned_tx");
@@ -326,10 +329,10 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 
 		match call {
-		Call::record_balance(account, price) => Ok(ValidTransaction {
+		Call::record_balance(account, block, price) => Ok(ValidTransaction {
 			priority: 0,
 			requires: vec![],
-			provides: vec![(account, price).encode()],
+			provides: vec![(account, block, price).encode()],
 			longevity: TransactionLongevity::max_value(),
 			propagate: true,
 		}),
