@@ -107,6 +107,16 @@ decl_module! {
 		}
 
 		#[weight = 10_000]
+		pub fn clear_claim(origin, block: T::BlockNumber)-> dispatch::DispatchResult {
+			// Ensuring this is an unsigned tx
+			ensure_none(origin)?;
+			// Remove all claimed accounts
+			<ClaimAccountSet::<T>>::remove_all();
+
+			Ok(())
+		}
+
+		#[weight = 10_000]
 		pub fn record_balance(
 			origin,
 			account: T::AccountId,
@@ -128,7 +138,18 @@ decl_module! {
 			// Get the all accounts who ask for asset claims
 			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
 			// Remove all claimed accounts
-			<ClaimAccountSet::<T>>::remove_all();
+			// TODO seems it doesn't work here to update ClaimAccountSet
+			// <ClaimAccountSet::<T>>::remove_all();
+
+			// Try to remove claims via tx
+			if accounts.len() > 0 {
+				let call = Call::clear_claim(block);
+				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+				.map_err(|_| {
+					debug::error!("Failed in offchain_unsigned_tx");
+					<Error<T>>::InvalidNumber
+				});
+			}
 
 			debug::info!("Start Offchain Worker {} claims.", accounts.len());
 			match Self::fetch_etherscan(accounts, block) {
@@ -174,9 +195,11 @@ impl<T: Trait> Module<T> {
 		link.extend(ETHER_SCAN_TOKEN.as_bytes());
 
 		// Get the json
+		debug::info!("Offchain Worker fetch json.");
 		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
 		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
+		debug::info!("Offchain Worker parse balance.");
 		let balances = Self::parse_multi_balances(response);
 
 		match balances {
@@ -186,6 +209,7 @@ impl<T: Trait> Module<T> {
 					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
 					total_balance = total_balance + balance;
 				}
+				debug::info!("Offchain Worker record balance.");
 				let call = Call::record_balance(account.clone(), block, total_balance);
 				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 				.map_err(|_| {
@@ -333,6 +357,14 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 			priority: 0,
 			requires: vec![],
 			provides: vec![(account, block, price).encode()],
+			longevity: TransactionLongevity::max_value(),
+			propagate: true,
+		}),
+		
+		Call::clear_claim(block) => Ok(ValidTransaction {
+			priority: 0,
+			requires: vec![],
+			provides: vec![(block).encode()],
 			longevity: TransactionLongevity::max_value(),
 			propagate: true,
 		}),
