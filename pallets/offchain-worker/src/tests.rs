@@ -156,9 +156,9 @@ impl ExternalityBuilder {
 
 #[test]
 fn test_chars_to_u64() {
-	let correct_balance = vec!['1', '2'];
+	let correct_balance = vec!['5', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
 
-	assert_eq!(Ok(12), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+	assert_eq!(Ok(500000000000000000), <Module<TestRuntime>>::chars_to_u64(correct_balance));
 
 	let correct_balance = vec!['a', '2'];
 	assert_eq!(Err("Wrong u64 balance data format"), <Module<TestRuntime>>::chars_to_u64(correct_balance));

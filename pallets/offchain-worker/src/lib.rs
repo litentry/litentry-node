@@ -27,7 +27,7 @@ pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
 // https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
 // The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
-pub const ETHER_SCAN_PREFIX: &str = "https://api.etherscan.io/api?module=account&action=balancemulti&address=0x";
+pub const ETHER_SCAN_PREFIX: &str = "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x";
 pub const ETHER_SCAN_DELIMITER: &str = ",0x";
 pub const ETHER_SCAN_POSTFIX: &str = "&tag=latest&apikey=";
 pub const ETHER_SCAN_TOKEN: &str = "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB";
@@ -121,14 +121,16 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			block: T::BlockNumber,
-			price: u64
+			balance: u64
 		) -> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
 			// Record the total claims processed
 			TotalClaims::put(Self::total_claims() + 1);
+			// Set balance 
+			<AccountBalance<T>>::insert(account.clone(), balance);
 			// Spit out an event and Add to storage
-			Self::deposit_event(RawEvent::BalanceGot(account, block, price));
+			Self::deposit_event(RawEvent::BalanceGot(account, block, balance));
 
 			Ok(())
 		}
@@ -151,7 +153,6 @@ decl_module! {
 				});
 			}
 
-			debug::info!("Start Offchain Worker {} claims.", accounts.len());
 			match Self::fetch_etherscan(accounts, block) {
 				Ok(()) => debug::info!("Offchain Worker end successfully."),
 				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
@@ -164,7 +165,7 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn fetch_etherscan(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			Self::fetch_etherscan_account(account, block);
+			Self::fetch_etherscan_account(account, block)?;
 		}
 		Ok(())
 	}
@@ -173,7 +174,6 @@ impl<T: Trait> Module<T> {
 	fn fetch_etherscan_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		// Get all ethereum accounts linked to Litentry		
 		let eth_accounts = <account_linker::EthereumLink<T>>::get(account);
-		debug::info!("Offchain Worker account {:?} with {} eth accounts.", account, eth_accounts.len());
 
 		// Return if no ethereum account linked
 		if eth_accounts.len() == 0 {
@@ -187,19 +187,18 @@ impl<T: Trait> Module<T> {
 		for (i, eth_account) in eth_accounts.iter().enumerate() {
 			// Append delimiter if there are more than one accounts in the account_vec
 			if i >=1 {
-				link.extend(eth_account);
+				link.extend(ETHER_SCAN_DELIMITER.as_bytes());
 			};
-			link.extend(SAMPLE_ACCOUNT.as_bytes());
+
+			link.extend(Self::address_to_string(eth_account));
 		}
 		link.extend(ETHER_SCAN_POSTFIX.as_bytes());
 		link.extend(ETHER_SCAN_TOKEN.as_bytes());
 
 		// Get the json
-		debug::info!("Offchain Worker fetch json.");
 		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
 		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
-		debug::info!("Offchain Worker parse balance.");
 		let balances = Self::parse_multi_balances(response);
 
 		match balances {
@@ -209,7 +208,6 @@ impl<T: Trait> Module<T> {
 					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
 					total_balance = total_balance + balance;
 				}
-				debug::info!("Offchain Worker record balance.");
 				let call = Call::record_balance(account.clone(), block, total_balance);
 				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 				.map_err(|_| {
@@ -227,6 +225,7 @@ impl<T: Trait> Module<T> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
 	
+		debug::info!("Offchain Worker request url is {}.", remote_url_str);
 		let pending = http::Request::get(remote_url_str).send()
 			.map_err(|_| "Error in sending http GET request")?;
 	
@@ -342,6 +341,29 @@ impl<T: Trait> Module<T> {
 			}
 		}
 		return Ok(result)
+	}
+
+	// number byte to string byte
+	fn u8_to_str_byte(a: u8) -> u8{
+		if a < 10 {
+			return a + 48 as u8;
+		}
+		else {
+			return a + 87 as u8;
+		}
+	}
+
+	// address to string bytes
+	fn address_to_string(address: &[u8; 20]) -> Vec<u8> {
+
+		let mut vec_result: Vec<u8> = Vec::new();
+		for item in address {
+			let a: u8 = item & 0x0F;
+			let b: u8 = item >> 4;
+			vec_result.push(Self::u8_to_str_byte(b));
+			vec_result.push(Self::u8_to_str_byte(a));
+		}
+		return vec_result;
 	}
 }
 
