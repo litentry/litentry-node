@@ -2,8 +2,8 @@
 
 use codec::Encode;
 use sp_std::prelude::*;
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch};
-use frame_system::ensure_signed;
+use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, ensure};
+use frame_system::{ensure_signed};
 
 #[cfg(test)]
 mod mock;
@@ -32,6 +32,7 @@ decl_event!(
 decl_error! {
 	pub enum Error for Module<T: Trait> {
 		EcdsaRecoverFailure,
+		LinkRequestExpired,
 	}
 }
 
@@ -50,7 +51,7 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			index: u32,
-			block_number: T::BlockNumber,
+			expiring_block_number: T::BlockNumber,
 			r: [u8; 32],
 			s: [u8; 32],
 			v: u8,
@@ -59,11 +60,11 @@ decl_module! {
 			let _ = ensure_signed(origin)?;
 
 			let current_block_number = <frame_system::Module<T>>::block_number();
-			// TODO: check block number not expired
+			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
 
 			let mut bytes = b"Link Litentry: ".encode();
 			let mut account_vec = account.encode(); // Warning: must be 32 bytes
-			let mut block_number_vec = block_number.encode(); // Warning: must be 4 bytes
+			let mut expiring_block_number_vec = expiring_block_number.encode(); // Warning: must be 4 bytes
 			
 			// let mut bytes = [0u8; 51]; // TODO: need to change this if b0 changes
 			// let b0 = b"Link Litentry: ";
@@ -72,7 +73,7 @@ decl_module! {
 			// bytes[47..].copy_from_slice(&block_number_vec);
 
 			bytes.append(&mut account_vec);
-			bytes.append(&mut block_number_vec);
+			bytes.append(&mut expiring_block_number_vec);
 
 			let hash = sp_io::hashing::keccak_256(&bytes);
 
