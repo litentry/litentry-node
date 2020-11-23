@@ -61,18 +61,18 @@ decl_module! {
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			// TODO: check block number not expired
 
-			let b0 = b"Link Litentry: ";
-
-			let account_vec = account.encode(); // Warning: must be 32 bytes
-
-			let block_number_vec = block_number.encode(); // Warning: must be 4 bytes
+			let mut bytes = b"Link Litentry: ".encode();
+			let mut account_vec = account.encode(); // Warning: must be 32 bytes
+			let mut block_number_vec = block_number.encode(); // Warning: must be 4 bytes
 			
-			// let mut message_data = format!("Link Litentry: {}, {}", b1, b2);
-			// // let b2 = timestamp.to_be_bytes();
-			let mut bytes = [0u8; 51]; // TODO: need to change this if b0 changes
-			bytes[..15].copy_from_slice(b0);
-			bytes[15..47].copy_from_slice(&account_vec);
-			bytes[47..].copy_from_slice(&block_number_vec);
+			// let mut bytes = [0u8; 51]; // TODO: need to change this if b0 changes
+			// let b0 = b"Link Litentry: ";
+			// bytes[..15].copy_from_slice(b0);
+			// bytes[15..47].copy_from_slice(&account_vec);
+			// bytes[47..].copy_from_slice(&block_number_vec);
+
+			bytes.append(&mut account_vec);
+			bytes.append(&mut block_number_vec);
 
 			let hash = sp_io::hashing::keccak_256(&bytes);
 
@@ -103,5 +103,30 @@ decl_module! {
 
 		}
 
+		#[weight = 1]
+		pub fn test(
+			origin,
+			account: T::AccountId,
+			index: u32,
+			addr: [u8; 20],
+		) -> dispatch::DispatchResult {
+		
+			let _ = ensure_signed(origin)?;
+		
+			let index = index as usize;
+			let mut addrs = Self::eth_addresses(&account);
+			if (index >= addrs.len()) && (addrs.len() != 3) { // allow linking 3 eth addresses. TODO: do not use hard code
+				addrs.push(addr);
+			} else if (index >= addrs.len()) && (addrs.len() == 3) {
+				addrs[2] = addr;
+			} else {
+				addrs[index] = addr;
+			}
+		
+			<EthereumLink<T>>::insert(account, addrs);
+		
+			Ok(())
+		
+		}
 	}
 }
