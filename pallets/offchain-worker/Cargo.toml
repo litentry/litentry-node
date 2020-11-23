@@ -35,14 +35,19 @@ sp-runtime = { default-features = false, version = '2.0.0' }
 default = ['std']
 std = [
     "codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"serde",
-	"lite-json/std",
-	"sp-core/std",
-	"sp-io/std",
-	# "sp-keystore",
-	"sp-runtime/std",
-	"sp-std/std",
-	"account-linker/std",
+    "frame-support/std",
+    "frame-system/std",
+    "serde",
+    "lite-json/std",
+    "sp-core/std",
+    "sp-io/std",
+    # "sp-keystore",
+    "sp-runtime/std",
+    "sp-std/std",
+    "account-linker/std",
 ]
+
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false # Disable features which are enabled by default
+features = ["precommit-hook", "run-cargo-fmt"]
