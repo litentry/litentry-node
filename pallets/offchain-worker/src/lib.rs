@@ -34,6 +34,14 @@ pub const ETHER_SCAN_TOKEN: &str = "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB";
 
 pub const SAMPLE_ACCOUNT: &str = "742d35Cc6634C0532925a3b844Bc454e4438f44e";
 
+// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
+// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
+pub const BLOCKCHAIN_INFO_PREFIX: &str = "https://blockchain.info/balance?active=";
+// The "%7C" is encoded of | delimiter in URL
+pub const BLOCKCHAIN_INFO_DELIMITER: &str = "%7C";
+pub const BLOCKCHAIN_INFO_POSTFIX: &str = "";
+pub const BTC_SAMPLE_ACCOUNT: &str = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+
 pub mod crypto {
 	use super::KEY_TYPE;
 	use sp_runtime::{
@@ -152,6 +160,8 @@ decl_module! {
 					<Error<T>>::InvalidNumber
 				});
 			}
+
+			Self::fetch_blockchain_info_account();
 
 			match Self::fetch_etherscan(accounts, block) {
 				Ok(()) => debug::info!("Offchain Worker end successfully."),
@@ -299,7 +309,7 @@ impl<T: Trait> Module<T> {
 		Some(balances)
 	}
 
-	// Parse a single balance from ethscan respose
+	// Parse a single balance from etherscan response
 	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
 		// {
 		// "status": "1",
@@ -323,6 +333,60 @@ impl<T: Trait> Module<T> {
 		})?;
 		Some(balance)
 	}
+
+	//fn parse_blockchain_info
+	fn fetch_blockchain_info_account() ->  Result<(), Error<T>> {
+		// Get all bitcoin accounts linked to Litentry		
+		let mut btc_accounts: Vec<Vec<u8>> = Vec::new(); 
+		// TODO Just push twice to test the multi accounts request
+		btc_accounts.push(BTC_SAMPLE_ACCOUNT.as_bytes().to_vec());
+		btc_accounts.push(BTC_SAMPLE_ACCOUNT.as_bytes().to_vec());
+
+		// Return if no bitcoin account linked
+		if btc_accounts.len() == 0 {
+			return Ok(())
+		}
+
+		// Compose the web link
+		let mut link: Vec<u8> = Vec::new();
+		link.extend(BLOCKCHAIN_INFO_PREFIX.as_bytes());
+
+		for (i, btc_account) in btc_accounts.iter().enumerate() {
+			// Append delimiter if there are more than one accounts in the account_vec
+			if i >=1 {
+				link.extend(BLOCKCHAIN_INFO_DELIMITER.as_bytes());
+			};
+
+			link.extend(btc_account);
+		}
+		link.extend(BLOCKCHAIN_INFO_POSTFIX.as_bytes());
+
+		// Get the json
+		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
+		
+		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
+		debug::info!("Offchain Worker result {}.", response);
+	//	let balances = Self::parse_multi_balances(response);
+
+	//	match balances {
+	//		Some(data) => {
+	//			let mut total_balance: u64 = 0;
+	//			for item in data {
+	//				let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
+	//				total_balance = total_balance + balance;
+	//			}
+	//			let call = Call::record_balance(account.clone(), block, total_balance);
+	//			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+	//			.map_err(|_| {
+	//				debug::error!("Failed in offchain_unsigned_tx");
+	//				<Error<T>>::InvalidNumber
+	//			});
+	//		},
+	//		None => (),
+	//	}
+		Ok(())
+	}
+
 
 	// U64 number string to u64
 	pub fn chars_to_u64(vec: Vec<char>) -> Result<u64, &'static str> {
