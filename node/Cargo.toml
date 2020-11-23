@@ -55,3 +55,8 @@ substrate-frame-rpc-system = '2.0.0'
 [features]
 default = []
 runtime-benchmarks = ['litentry-runtime/runtime-benchmarks']
+
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false # Disable features which are enabled by default
+features = ["precommit-hook", "run-cargo-fmt"]

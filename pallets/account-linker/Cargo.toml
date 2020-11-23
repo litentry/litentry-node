@@ -38,3 +38,7 @@ std = [
     "sp-io/std",
     "sp-std/std",
 ]
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false # Disable features which are enabled by default
+features = ["precommit-hook", "run-cargo-fmt"]
