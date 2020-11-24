@@ -1,9 +1,8 @@
-use crate::{Error, mock::*};
+use crate::mock::*;
 use codec::Encode;
-use frame_support::{assert_ok, assert_noop};
+use frame_support::assert_ok;
 use parity_crypto::Keccak256;
 use parity_crypto::publickey::{Random, Generator, Message, sign};
-use sp_std::prelude::*;
 
 #[test]
 fn it_works_for_default_value() {
