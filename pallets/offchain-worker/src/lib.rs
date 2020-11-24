@@ -387,13 +387,13 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Parse balances from blockchain info response
-	fn parse_blockchain_balances(price_str: &str) -> Option<Vec<Vec<char>>>{
+	fn parse_blockchain_balances(price_str: &str) -> Option<Vec<u64>>{
 		// {
 		//	"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":6835384571,"n_tx":2635,"total_received":6835384571},
 		//  "15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":0,"n_tx":4,"total_received":310925609}
 	  // }
 		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<Vec<char>> = Vec::new();
+		let mut balance_vec: Vec<u64> = Vec::new();
 
 		val.ok().and_then(|v| match v {
 			JsonValue::Object(obj) => {
@@ -405,7 +405,7 @@ impl<T: Trait> Module<T> {
 								k.iter().all(|k| Some(*k) == matching_chars.next())
 							})
 							.and_then(|v| match v.1 {
-								JsonValue::String(balance) => Some(balance),
+								JsonValue::Number(balance) => Some(balance.integer as u64), // TODO error handling here
 								_ => None,
 							})?);
 						},
