@@ -8,41 +8,40 @@ use sp_std::prelude::*;
 #[test]
 fn it_works_for_default_value() {
 	new_test_ext().execute_with(|| {
-        // Dispatch a signed extrinsic.
-        
-        let account: u64 = 5;
-        let block_number: u64 = 123;
 
-        let mut bytes = b"Link Litentry: ".encode();
-        let mut account_vec = account.encode(); // Warning: must be 32 bytes
-        let mut expiring_block_number_vec = block_number.encode(); // Warning: must be 4 bytes
+		let account: u64 = 5;
+		let block_number: u64 = 123;
 
-        bytes.append(&mut account_vec);
-        bytes.append(&mut expiring_block_number_vec);
+		let mut bytes = b"Link Litentry: ".encode();
+		let mut account_vec = account.encode(); // Warning: must be 32 bytes
+		let mut expiring_block_number_vec = block_number.encode(); // Warning: must be 4 bytes
 
-        let msg = Message::from(bytes.keccak256());
+		bytes.append(&mut account_vec);
+		bytes.append(&mut expiring_block_number_vec);
 
-        let mut gen = Random{};
-        let key_pair = gen.generate().unwrap();
+		let msg = Message::from(bytes.keccak256());
 
-        let sig = sign(key_pair.secret(), &msg).unwrap().into_electrum();
+		let mut gen = Random{};
+		let key_pair = gen.generate().unwrap();
 
-        let mut r = [0u8; 32];
-        let mut s = [0u8; 32];
+		let sig = sign(key_pair.secret(), &msg).unwrap().into_electrum();
 
-        r[..32].copy_from_slice(&sig[..32]);
-        s[..32].copy_from_slice(&sig[32..64]);
-        let v = sig[64];
+		let mut r = [0u8; 32];
+		let mut s = [0u8; 32];
+
+		r[..32].copy_from_slice(&sig[..32]);
+		s[..32].copy_from_slice(&sig[32..64]);
+		let v = sig[64];
 
 		assert_ok!(AccountLinker::link(
-            Origin::signed(1),
-            account,
-            0,
-            block_number,
-            r,
-            s,
-            v
-        ));
+			Origin::signed(1),
+			account,
+			0,
+			block_number,
+			r,
+			s,
+			v
+		));
 		assert_eq!(AccountLinker::eth_addresses(account), vec![key_pair.address().to_fixed_bytes()]);
 	});
 }
