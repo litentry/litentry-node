@@ -41,6 +41,7 @@ pub const BLOCKCHAIN_INFO_PREFIX: &str = "https://blockchain.info/balance?active
 pub const BLOCKCHAIN_INFO_DELIMITER: &str = "%7C";
 pub const BLOCKCHAIN_INFO_POSTFIX: &str = "";
 pub const BTC_SAMPLE_ACCOUNT: &str = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+pub const BTC_SAMPLE_ACCOUNT_TWO: &str = "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4";
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -255,7 +256,7 @@ impl<T: Trait> Module<T> {
 		Ok(balance.as_bytes().to_vec())
 	}
 
-	// Parse the balance from ethscan response
+	// Parse the balance from etherscan response
 	fn parse_multi_balances(price_str: &str) -> Option<Vec<Vec<char>>> {
 		// {
 		// "status": "1",
@@ -269,7 +270,7 @@ impl<T: Trait> Module<T> {
 		let val = lite_json::parse_json(price_str);
 		let mut balance_vec: Vec<Vec<char>> = Vec::new();
 
-		let balances = val.ok().and_then(|v| { 
+		val.ok().and_then(|v| { 
 				match v {
 				JsonValue::Object(obj) => {
 					obj.into_iter()
@@ -304,9 +305,7 @@ impl<T: Trait> Module<T> {
 				},
 				_ => None
 			}
-		})?;
-
-		Some(balances)
+		})
 	}
 
 	// Parse a single balance from etherscan response
@@ -334,13 +333,13 @@ impl<T: Trait> Module<T> {
 		Some(balance)
 	}
 
-	//fn parse_blockchain_info
+	// Fetch Bitcoin balances from blockchain info
 	fn fetch_blockchain_info_account() ->  Result<(), Error<T>> {
 		// Get all bitcoin accounts linked to Litentry		
 		let mut btc_accounts: Vec<Vec<u8>> = Vec::new(); 
 		// TODO Just push twice to test the multi accounts request
 		btc_accounts.push(BTC_SAMPLE_ACCOUNT.as_bytes().to_vec());
-		btc_accounts.push(BTC_SAMPLE_ACCOUNT.as_bytes().to_vec());
+		btc_accounts.push(BTC_SAMPLE_ACCOUNT_TWO.as_bytes().to_vec());
 
 		// Return if no bitcoin account linked
 		if btc_accounts.len() == 0 {
@@ -366,7 +365,7 @@ impl<T: Trait> Module<T> {
 		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
 		debug::info!("Offchain Worker result {}.", response);
-	//	let balances = Self::parse_multi_balances(response);
+		let balances = Self::parse_blockchain_balances(response);
 
 	//	match balances {
 	//		Some(data) => {
@@ -387,6 +386,37 @@ impl<T: Trait> Module<T> {
 		Ok(())
 	}
 
+	// Parse balances from blockchain info response
+	fn parse_blockchain_balances(price_str: &str) -> Option<Vec<Vec<char>>>{
+		// {
+		//	"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":6835384571,"n_tx":2635,"total_received":6835384571},
+		//  "15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":0,"n_tx":4,"total_received":310925609}
+	  // }
+		let val = lite_json::parse_json(price_str);
+		let mut balance_vec: Vec<Vec<char>> = Vec::new();
+
+		val.ok().and_then(|v| match v {
+			JsonValue::Object(obj) => {
+				for each in obj {
+					match each.1 {
+						JsonValue::Object(balance_pairs) => {
+							balance_vec.push(balance_pairs.into_iter().find(|(k, _)|{
+								let mut matching_chars = "final_balance".chars();
+								k.iter().all(|k| Some(*k) == matching_chars.next())
+							})
+							.and_then(|v| match v.1 {
+								JsonValue::String(balance) => Some(balance),
+								_ => None,
+							})?);
+						},
+						_ => ()
+					}
+				};
+				Some(balance_vec)
+			},
+			_ => None
+		})
+	}
 
 	// U64 number string to u64
 	pub fn chars_to_u64(vec: Vec<char>) -> Result<u64, &'static str> {
