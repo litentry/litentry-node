@@ -10,7 +10,7 @@ fn it_works_for_default_value() {
 	new_test_ext().execute_with(|| {
 
 		let account: u64 = 5;
-		let block_number: u64 = 123;
+		let block_number: u64 = 9999;
 
 		let mut bytes = b"Link Litentry: ".encode();
 		let mut account_vec = account.encode(); // Warning: must be 32 bytes
