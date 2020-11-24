@@ -53,7 +53,7 @@ impl Trait for Test {
 	type Event = ();
 }
 
-pub type TemplateModule = Module<Test>;
+pub type AccountLinker = Module<Test>;
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
