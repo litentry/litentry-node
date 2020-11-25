@@ -25,23 +25,41 @@ mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
-// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
-// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
-pub const ETHER_SCAN_PREFIX: &str = "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x";
-pub const ETHER_SCAN_DELIMITER: &str = ",0x";
-pub const ETHER_SCAN_POSTFIX: &str = "&tag=latest&apikey=";
-pub const ETHER_SCAN_TOKEN: &str = "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB";
+pub struct UrlAffixSet<'a> {
+	prefix: &'a str,
+	delimiter: &'a str,
+	postfix: &'a str,
+	api_token: &'a str,
 
-pub const SAMPLE_ACCOUNT: &str = "742d35Cc6634C0532925a3b844Bc454e4438f44e";
+	// Debug
+	//sample_acc: &'a str,
+	//sample_acc_add: &'a str,
+}
 
-// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
-// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
-pub const BLOCKCHAIN_INFO_PREFIX: &str = "https://blockchain.info/balance?active=";
-// The "%7C" is encoded of | delimiter in URL
-pub const BLOCKCHAIN_INFO_DELIMITER: &str = "%7C";
-pub const BLOCKCHAIN_INFO_POSTFIX: &str = "";
-pub const BTC_SAMPLE_ACCOUNT: &str = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-pub const BTC_SAMPLE_ACCOUNT_TWO: &str = "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4";
+pub const ETHERSCAN_AFFIX: UrlAffixSet = UrlAffixSet {
+	// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
+	// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
+
+	prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
+	delimiter: ",0x",
+	postfix: "&tag=latest&apikey=", 
+	api_token: "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB",
+	//sample_acc: "742d35Cc6634C0532925a3b844Bc454e4438f44e",
+	//sample_acc_add: "",
+};
+
+pub const BLOCKCHAIN_INFO_AFFIX: UrlAffixSet = UrlAffixSet {
+	// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
+	// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
+
+	prefix: "https://blockchain.info/balance?active=",
+	// The "%7C" is encoded of | delimiter in URL
+	delimiter: "%7C",
+	postfix: "",
+	api_token: "",
+	//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+	//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
+};
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -163,7 +181,7 @@ decl_module! {
 				});
 			}
 
-			match Self::fetch_etherscan(accounts, block) {
+			match Self::update(accounts, block) {
 				Ok(()) => debug::info!("Offchain Worker end successfully."),
 				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
 			}
@@ -173,87 +191,54 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
-	fn fetch_etherscan(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
+	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			// Get the btc balance
-			let btc_balance = Self::fetch_blockchain_info_account(account, block);
-			// Get the eth balance
-			let eth_balance = Self::fetch_etherscan_account(account, block);
+			let eth_balance = Self::fetch_balances(account, block, ETHERSCAN_AFFIX, &Self::parse_etherscan_balances)?;
+			let btc_balance = Self::fetch_balances(account, block, BLOCKCHAIN_INFO_AFFIX, &Self::parse_blockchain_info_balances)?;
 
-			match (btc_balance, eth_balance) {
-				(Ok(btc), Ok(eth)) => {
-					let call = Call::record_balance(account.clone(), block, btc, eth);
-					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-					.map_err(|_| {
-						debug::error!("Failed in offchain_unsigned_tx");
-						<Error<T>>::InvalidNumber
-					});
-				},
-				(Ok(btc), _) => {
-					let call = Call::record_balance(account.clone(), block, btc, 0_64);
-					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-					.map_err(|_| {
-						debug::error!("Failed in offchain_unsigned_tx");
-						<Error<T>>::InvalidNumber
-					});
-				},
-				(_, Ok(eth)) => {
-					let call = Call::record_balance(account.clone(), block, 0_64, eth);
-					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-					.map_err(|_| {
-						debug::error!("Failed in offchain_unsigned_tx");
-						<Error<T>>::InvalidNumber
-					});
-				},
-				(_, _) => {
-					let call = Call::record_balance(account.clone(), block, 0_64, 0_64);
-					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-					.map_err(|_| {
-						debug::error!("Failed in offchain_unsigned_tx");
-						<Error<T>>::InvalidNumber
-					});
-				},
-			}
+
 		}
 		Ok(())
 	}
 
-	// fetch an account
-	fn fetch_etherscan_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(u64), Error<T>> {
-		// Get all ethereum accounts linked to Litentry		
-		let eth_accounts = <account_linker::EthereumLink<T>>::get(account);
+	// Generic function to fetch balance for specific link type
+	fn fetch_balances(account: &T::AccountId, block: T::BlockNumber, affix_set: UrlAffixSet, 
+		parser: &dyn Fn(&str) -> Option<Vec<u64>>) -> Result<(u128), Error<T>> {
+		// TODO add match expression later to distinguish eth and btc
+		//      generic array would be the best choice here, however seems it's still not completed in rust
+		// Get all linked accounts for this account
+		let wallet_accounts: Vec<[u8; 20]> = <account_linker::EthereumLink<T>>::get(account);
 
-		// Return if no ethereum account linked
-		if eth_accounts.len() == 0 {
-			return Ok(0_u64)
+		// Return if no account linked
+		if wallet_accounts.len() == 0 {
+			return Ok(())
 		}
 
 		// Compose the web link
 		let mut link: Vec<u8> = Vec::new();
-		link.extend(ETHER_SCAN_PREFIX.as_bytes());
+		link.extend(affix_set.prefix.as_bytes());
 
-		for (i, eth_account) in eth_accounts.iter().enumerate() {
+		for (i, each_account) in wallet_accounts.iter().enumerate() {
 			// Append delimiter if there are more than one accounts in the account_vec
 			if i >=1 {
-				link.extend(ETHER_SCAN_DELIMITER.as_bytes());
+				link.extend(affix_set.delimiter.as_bytes());
 			};
 
-			link.extend(Self::address_to_string(eth_account));
+			link.extend(Self::address_to_string(each_account));
 		}
-		link.extend(ETHER_SCAN_POSTFIX.as_bytes());
-		link.extend(ETHER_SCAN_TOKEN.as_bytes());
+		link.extend(affix_set.postfix.as_bytes());
+		link.extend(affix_set.api_token.as_bytes());
 
 		// Get the json
 		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
 		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
-		let balances = Self::parse_multi_balances(response);
+		let balances = parser(response);
 
 		match balances {
 			Some(data) => {
 				let mut total_balance: u64 = 0;
-				for item in data {
-					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
+				for balance in data {
 					total_balance = total_balance + balance;
 				}
 				Ok(total_balance)
@@ -288,7 +273,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Parse the balance from etherscan response
-	fn parse_multi_balances(price_str: &str) -> Option<Vec<Vec<char>>> {
+	fn parse_etherscan_balances(price_str: &str) -> Option<Vec<u64>> {
 		// {
 		// "status": "1",
 		// "message": "OK",
@@ -299,7 +284,7 @@ impl<T: Trait> Module<T> {
 		//   ]
 		// }
 		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<Vec<char>> = Vec::new();
+		let mut balance_vec: Vec<u64> = Vec::new();
 
 		val.ok().and_then(|v| { 
 				match v {
@@ -319,7 +304,13 @@ impl<T: Trait> Module<T> {
 												let mut balance_chars = "balance".chars();		
 												if pair.0.iter().all(|k| Some(*k) == balance_chars.next()) {
 													match pair.1 {
-														JsonValue::String(balance) => balance_vec.push(balance),
+														JsonValue::String(balance) => {
+															match Self::chars_to_u64(balance){
+																Ok(b) => balance_vec.push(b),
+																// TODO Proper error handling here would be necessary later
+																Err(_) => return None,
+															}
+														},
 														_ => (),
 													}
 												}
@@ -339,6 +330,7 @@ impl<T: Trait> Module<T> {
 		})
 	}
 
+	// DEPRECATED This function can be replaced by parse_etherscan_balances
 	// Parse a single balance from etherscan response
 	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
 		// {
@@ -364,48 +356,8 @@ impl<T: Trait> Module<T> {
 		Some(balance)
 	}
 
-	// Fetch Bitcoin balances from blockchain info
-	fn fetch_blockchain_info_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(u64), Error<T>> {
-		// Get all bitcoin accounts linked to Litentry		
-		let mut btc_accounts: Vec<Vec<u8>> = Vec::new(); 
-		// TODO Just push twice to test the multi accounts request
-		btc_accounts.push(BTC_SAMPLE_ACCOUNT.as_bytes().to_vec());
-		btc_accounts.push(BTC_SAMPLE_ACCOUNT_TWO.as_bytes().to_vec());
-
-		// Return if no bitcoin account linked
-		if btc_accounts.len() == 0 {
-			return Ok(0_u64);
-		}
-
-		// Compose the web link
-		let mut link: Vec<u8> = Vec::new();
-		link.extend(BLOCKCHAIN_INFO_PREFIX.as_bytes());
-
-		for (i, btc_account) in btc_accounts.iter().enumerate() {
-			// Append delimiter if there are more than one accounts in the account_vec
-			if i >=1 {
-				link.extend(BLOCKCHAIN_INFO_DELIMITER.as_bytes());
-			};
-
-			link.extend(btc_account);
-		}
-		link.extend(BLOCKCHAIN_INFO_POSTFIX.as_bytes());
-
-		// Get the json
-		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
-		
-		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
-		debug::info!("Offchain Worker result {}.", response);
-		let balances = Self::parse_blockchain_balances(response);
-
-		match balances {
-			Some(data) => Ok(data.into_iter().sum()),
-			None => Ok(0_u64),
-		}
-	}
-
 	// Parse balances from blockchain info response
-	fn parse_blockchain_balances(price_str: &str) -> Option<Vec<u64>>{
+	fn parse_blockchain_info_balances(price_str: &str) -> Option<Vec<u64>>{
 		// {
 		//	"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":6835384571,"n_tx":2635,"total_received":6835384571},
 		//  "15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":0,"n_tx":4,"total_received":310925609}
