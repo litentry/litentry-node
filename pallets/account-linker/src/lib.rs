@@ -13,6 +13,8 @@ mod tests;
 
 mod util;
 
+pub const MAX_ETH_LINKS: usize = 3;
+
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
@@ -90,10 +92,10 @@ decl_module! {
 
 			let index = index as usize;
 			let mut addrs = Self::eth_addresses(&account);
-			if (index >= addrs.len()) && (addrs.len() != 3) { // allow linking 3 eth addresses. TODO: do not use hard code
+			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) { // allow linking 3 eth addresses. TODO: do not use hard code
 				addrs.push(addr);
-			} else if (index >= addrs.len()) && (addrs.len() == 3) {
-				addrs[2] = addr;
+			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
+				addrs[MAX_ETH_LINKS - 1] = addr;
 			} else {
 				addrs[index] = addr;
 			}
@@ -116,10 +118,10 @@ decl_module! {
 		
 			let index = index as usize;
 			let mut addrs = Self::eth_addresses(&account);
-			if (index >= addrs.len()) && (addrs.len() != 3) { // allow linking 3 eth addresses. TODO: do not use hard code
+			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) { // allow linking 3 eth addresses. TODO: do not use hard code
 				addrs.push(addr);
-			} else if (index >= addrs.len()) && (addrs.len() == 3) {
-				addrs[2] = addr;
+			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
+				addrs[MAX_ETH_LINKS - 1] = addr;
 			} else {
 				addrs[index] = addr;
 			}
