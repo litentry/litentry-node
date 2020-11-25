@@ -1,5 +1,7 @@
 # Testnet
 
+telnet 18.163.198.168 30333
+
 ## dev environment
 /home/ec2-user/litentry-node/target/release/litentry-node --dev \
 --cors==all \
