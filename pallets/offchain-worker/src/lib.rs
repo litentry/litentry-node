@@ -86,11 +86,11 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 decl_storage! {
 	trait Store for Module<T: Trait> as OffchainWorkerModule {
 		/// Record how many claims from Litentry user
-		TotalClaims get(fn total_claims): u64;
+		TotalClaims get(fn total_claims): u128;
 		/// Record the accounts send claims in latest block
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
 		/// Record account's btc and ethereum balance
-		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u64, u64);
+		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u128, u128);
 	}
 }
 
@@ -98,7 +98,7 @@ decl_event!(
 	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId, 
 					BlockNumber = <T as frame_system::Trait>::BlockNumber, {
 		/// Event for account and its ethereum balance
-		BalanceGot(AccountId, BlockNumber, u64, u64),
+		BalanceGot(AccountId, BlockNumber, u128, u128),
 	}
 );
 
@@ -148,8 +148,8 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			block: T::BlockNumber,
-			btc_balance: u64,
-			eth_balance: u64,
+			btc_balance: u128,
+			eth_balance: u128,
 		) -> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
@@ -193,17 +193,46 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			let eth_balance = Self::fetch_balances(account, block, ETHERSCAN_AFFIX, &Self::parse_etherscan_balances)?;
-			let btc_balance = Self::fetch_balances(account, block, BLOCKCHAIN_INFO_AFFIX, &Self::parse_blockchain_info_balances)?;
+			let eth_balance = Self::fetch_balances(account, ETHERSCAN_AFFIX, &Self::parse_etherscan_balances);
+			let btc_balance = Self::fetch_balances(account, BLOCKCHAIN_INFO_AFFIX, &Self::parse_blockchain_info_balances);
 
-
+			match (btc_balance, eth_balance) {
+				(Ok(btc), Ok(eth)) => {
+					let call = Call::record_balance(account.clone(), block, btc, eth);
+					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+					if result.is_err() {
+						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+				},
+				(Ok(btc), _) => {
+					let call = Call::record_balance(account.clone(), block, btc, 0_u128);
+					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+					if result.is_err() {
+						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+				},
+				(_, Ok(eth)) => {
+					let call = Call::record_balance(account.clone(), block, 0_u128, eth);
+					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+					if result.is_err() {
+						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+				},
+				(_, _) => {
+					let call = Call::record_balance(account.clone(), block, 0_u128, 0_u128);
+					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+					if result.is_err() {
+						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+				},
+			}
 		}
 		Ok(())
 	}
 
 	// Generic function to fetch balance for specific link type
-	fn fetch_balances(account: &T::AccountId, block: T::BlockNumber, affix_set: UrlAffixSet, 
-		parser: &dyn Fn(&str) -> Option<Vec<u64>>) -> Result<(u128), Error<T>> {
+	fn fetch_balances(account: &T::AccountId, affix_set: UrlAffixSet, 
+		parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
 		// TODO add match expression later to distinguish eth and btc
 		//      generic array would be the best choice here, however seems it's still not completed in rust
 		// Get all linked accounts for this account
@@ -211,7 +240,7 @@ impl<T: Trait> Module<T> {
 
 		// Return if no account linked
 		if wallet_accounts.len() == 0 {
-			return Ok(())
+			return Ok(0_u128)
 		}
 
 		// Compose the web link
@@ -237,13 +266,13 @@ impl<T: Trait> Module<T> {
 
 		match balances {
 			Some(data) => {
-				let mut total_balance: u64 = 0;
+				let mut total_balance: u128 = 0;
 				for balance in data {
 					total_balance = total_balance + balance;
 				}
 				Ok(total_balance)
 			},
-			None => Ok(0_u64),
+			None => Ok(0_u128),
 		}
 	}
 
@@ -273,7 +302,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Parse the balance from etherscan response
-	fn parse_etherscan_balances(price_str: &str) -> Option<Vec<u64>> {
+	fn parse_etherscan_balances(price_str: &str) -> Option<Vec<u128>> {
 		// {
 		// "status": "1",
 		// "message": "OK",
@@ -284,7 +313,7 @@ impl<T: Trait> Module<T> {
 		//   ]
 		// }
 		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<u64> = Vec::new();
+		let mut balance_vec: Vec<u128> = Vec::new();
 
 		val.ok().and_then(|v| { 
 				match v {
@@ -305,7 +334,7 @@ impl<T: Trait> Module<T> {
 												if pair.0.iter().all(|k| Some(*k) == balance_chars.next()) {
 													match pair.1 {
 														JsonValue::String(balance) => {
-															match Self::chars_to_u64(balance){
+															match Self::chars_to_u128(balance){
 																Ok(b) => balance_vec.push(b),
 																// TODO Proper error handling here would be necessary later
 																Err(_) => return None,
@@ -330,40 +359,14 @@ impl<T: Trait> Module<T> {
 		})
 	}
 
-	// DEPRECATED This function can be replaced by parse_etherscan_balances
-	// Parse a single balance from etherscan response
-	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
-		// {
-		// "status": "1",
-		// "message": "OK",
-		// "result": "3795858430482738500000001"
-		// }
-		let val = lite_json::parse_json(price_str);
-		let balance = val.ok().and_then(|v| match v {
-			JsonValue::Object(obj) => {
-				obj.into_iter()
-					.find(|(k, _)| { 
-						let mut chars = "result".chars();
-						k.iter().all(|k| Some(*k) == chars.next())
-					})
-					.and_then(|v| match v.1 {
-						JsonValue::String(balance) => Some(balance),
-						_ => None,
-					})
-			},
-			_ => None
-		})?;
-		Some(balance)
-	}
-
 	// Parse balances from blockchain info response
-	fn parse_blockchain_info_balances(price_str: &str) -> Option<Vec<u64>>{
+	fn parse_blockchain_info_balances(price_str: &str) -> Option<Vec<u128>>{
 		// {
 		//	"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":6835384571,"n_tx":2635,"total_received":6835384571},
 		//  "15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":0,"n_tx":4,"total_received":310925609}
 	  // }
 		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<u64> = Vec::new();
+		let mut balance_vec: Vec<u128> = Vec::new();
 
 		val.ok().and_then(|v| match v {
 			JsonValue::Object(obj) => {
@@ -375,7 +378,7 @@ impl<T: Trait> Module<T> {
 								k.iter().all(|k| Some(*k) == matching_chars.next())
 							})
 							.and_then(|v| match v.1 {
-								JsonValue::Number(balance) => Some(balance.integer as u64), // TODO error handling here
+								JsonValue::Number(balance) => Some(balance.integer as u128), // TODO error handling here
 								_ => None,
 							})?);
 						},
@@ -388,20 +391,20 @@ impl<T: Trait> Module<T> {
 		})
 	}
 
-	// U64 number string to u64
-	pub fn chars_to_u64(vec: Vec<char>) -> Result<u64, &'static str> {
-		let mut result: u64 = 0;
+	// u128 number string to u128
+	pub fn chars_to_u128(vec: Vec<char>) -> Result<u128, &'static str> {
+		let mut result: u128 = 0;
 		for item in vec {
 			let n = item.to_digit(10);
 			match n {
 				Some(i) => {
-					let i_64 = i as u64; 
+					let i_64 = i as u128; 
 					result = result * 10 + i_64;
 					if result < i_64 {
-						return Err("Wrong u64 balance data format");
+						return Err("Wrong u128 balance data format");
 					}
 				},
-				None => return Err("Wrong u64 balance data format"),
+				None => return Err("Wrong u128 balance data format"),
 			}
 		}
 		return Ok(result)
