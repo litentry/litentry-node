@@ -1,5 +1,10 @@
 # Testnet
 
+## dev environment
+/home/ec2-user/litentry-node/target/release/litentry-node --dev \
+--cors==all \
+ > /home/ec2-user/logs/litentry.log 2>&1 &
+
 ## generate key for seed node
 ^C[ec2-user@ip-172-31-17-223 ~]$ subkey inspect //Alice
 Secret Key URI `//Alice` is account:
@@ -10,7 +15,7 @@ Secret Key URI `//Alice` is account:
 
 
 ## create spec for testnet
-/home/ec2-user/litentry-node/target/release/litentry-node build-spec --chain litentry --disable-default-bootnode > litentry.json
+/home/ec2-user/litentry-node/target/release/litentry-node build-spec --disable-default-bootnode > litentry.json
 
 ## Start the seed node
 /home/ec2-user/litentry-node/target/release/litentry-node \
