@@ -165,7 +165,7 @@ fn test_chars_to_u64() {
 }
 
 #[test]
-fn test_parse_multi_balances() {
+fn test_parse_etherscan_balances() {
 	let double_balances = r#"
 	{
 	"status": "1",
@@ -176,7 +176,7 @@ fn test_parse_multi_balances() {
 			{"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"21"}
 		]
 	}"#;
-	assert_eq!(Some(vec![12, 21]), <Module<TestRuntime>>::parse_multi_balances(double_balances));
+	assert_eq!(Some(vec![12, 21]), <Module<TestRuntime>>::parse_etherscan_balances(double_balances));
 }
 
 #[test]
@@ -192,13 +192,13 @@ fn test_parse_balance() {
 }
 
 #[test]
-fn test_parse_blockchain_balances() {
+fn test_parse_blockchain_info_balances() {
 	let double_balances = r#"
 	{
 		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":30,"n_tx":2635,"total_received":6835384571},
 		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
 	}"#;
-	assert_eq!(Some(vec![30, 1220]), <Module<TestRuntime>>::parse_blockchain_balances(double_balances));
+	assert_eq!(Some(vec![30, 1220]), <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
 }
 
 // #[test]
