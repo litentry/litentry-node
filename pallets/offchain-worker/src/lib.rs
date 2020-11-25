@@ -86,7 +86,7 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 decl_storage! {
 	trait Store for Module<T: Trait> as OffchainWorkerModule {
 		/// Record how many claims from Litentry user
-		TotalClaims get(fn total_claims): u128;
+		TotalClaims get(fn total_claims): u64;
 		/// Record the accounts send claims in latest block
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
 		/// Record account's btc and ethereum balance
@@ -218,13 +218,7 @@ impl<T: Trait> Module<T> {
 						debug::info!("Offchain Worker failed to submit record balance transaction");
 					}
 				},
-				(_, _) => {
-					let call = Call::record_balance(account.clone(), block, 0_u128, 0_u128);
-					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-					if result.is_err() {
-						debug::info!("Offchain Worker failed to submit record balance transaction");
-					}
-				},
+				_ => (),
 			}
 		}
 		Ok(())
