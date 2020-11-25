@@ -215,8 +215,8 @@ impl<T: Trait> Module<T> {
 		match balances {
 			Some(data) => {
 				let mut total_balance: u64 = 0;
-				for item in data {
-					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
+				for balance in data {
+					//let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
 					total_balance = total_balance + balance;
 				}
 				let call = Call::record_balance(account.clone(), block, total_balance);
@@ -257,7 +257,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Parse the balance from etherscan response
-	fn parse_multi_balances(price_str: &str) -> Option<Vec<Vec<char>>> {
+	fn parse_multi_balances(price_str: &str) -> Option<Vec<u64>> {
 		// {
 		// "status": "1",
 		// "message": "OK",
@@ -268,7 +268,7 @@ impl<T: Trait> Module<T> {
 		//   ]
 		// }
 		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<Vec<char>> = Vec::new();
+		let mut balance_vec: Vec<u64> = Vec::new();
 
 		val.ok().and_then(|v| { 
 				match v {
@@ -288,7 +288,13 @@ impl<T: Trait> Module<T> {
 												let mut balance_chars = "balance".chars();		
 												if pair.0.iter().all(|k| Some(*k) == balance_chars.next()) {
 													match pair.1 {
-														JsonValue::String(balance) => balance_vec.push(balance),
+														JsonValue::String(balance) => {
+															match Self::chars_to_u64(balance){
+																Ok(b) => balance_vec.push(b),
+																// TODO Proper error handling here would be necessary later
+																Err(_) => return None,
+															}
+														},
 														_ => (),
 													}
 												}

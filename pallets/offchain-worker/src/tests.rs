@@ -176,7 +176,7 @@ fn test_parse_multi_balances() {
 			{"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"21"}
 		]
 	}"#;
-	assert_eq!(Some(vec![vec!['1', '2'], vec!['2', '1']]), <Module<TestRuntime>>::parse_multi_balances(double_balances));
+	assert_eq!(Some(vec![12, 21]), <Module<TestRuntime>>::parse_multi_balances(double_balances));
 }
 
 #[test]
