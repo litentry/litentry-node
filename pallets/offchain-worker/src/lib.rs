@@ -25,13 +25,26 @@ mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
-// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
-// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
-pub const ETHER_SCAN_PREFIX: &str = "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x";
-pub const ETHER_SCAN_DELIMITER: &str = ",0x";
-pub const ETHER_SCAN_POSTFIX: &str = "&tag=latest&apikey=";
-pub const ETHER_SCAN_TOKEN: &str = "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB";
+pub struct UrlAffixSet<'a> {
+	prefix: &'a str,
+	delimiter: &'a str,
+	postfix: &'a str,
+	api_token: &'a str,
 
+	// Debug
+	//sample_acc: &str,
+	//sample_acc_add: &str,
+}
+
+pub const ETHERSCAN_AFFIX: UrlAffixSet = UrlAffixSet {
+	// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
+	// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
+
+	prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
+	delimiter: ",0x",
+	postfix: "&tag=latest&apikey=", 
+	api_token: "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB",
+};
 pub const SAMPLE_ACCOUNT: &str = "742d35Cc6634C0532925a3b844Bc454e4438f44e";
 
 // https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
@@ -176,47 +189,49 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn fetch_etherscan(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			Self::fetch_etherscan_account(account, block)?;
+			Self::fetch_balances(account, block, ETHERSCAN_AFFIX, &Self::parse_multi_balances)?;
 		}
 		Ok(())
 	}
 
-	// fetch an account
-	fn fetch_etherscan_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(), Error<T>> {
-		// Get all ethereum accounts linked to Litentry		
-		let eth_accounts = <account_linker::EthereumLink<T>>::get(account);
+	// Generic function to fetch balance for specific link type
+	fn fetch_balances(account: &T::AccountId, block: T::BlockNumber, affix_set: UrlAffixSet, 
+		parser: &dyn Fn(&str) -> Option<Vec<u64>>) -> Result<(), Error<T>> {
+		// TODO add match expression later to distinguish eth and btc
+		//      generic array would be the best choice here, however seems it's still not completed in rust
+		// Get all linked accounts for this account
+		let wallet_accounts: Vec<[u8; 20]> = <account_linker::EthereumLink<T>>::get(account);
 
-		// Return if no ethereum account linked
-		if eth_accounts.len() == 0 {
+		// Return if no account linked
+		if wallet_accounts.len() == 0 {
 			return Ok(())
 		}
 
 		// Compose the web link
 		let mut link: Vec<u8> = Vec::new();
-		link.extend(ETHER_SCAN_PREFIX.as_bytes());
+		link.extend(affix_set.prefix.as_bytes());
 
-		for (i, eth_account) in eth_accounts.iter().enumerate() {
+		for (i, each_account) in wallet_accounts.iter().enumerate() {
 			// Append delimiter if there are more than one accounts in the account_vec
 			if i >=1 {
-				link.extend(ETHER_SCAN_DELIMITER.as_bytes());
+				link.extend(affix_set.delimiter.as_bytes());
 			};
 
-			link.extend(Self::address_to_string(eth_account));
+			link.extend(Self::address_to_string(each_account));
 		}
-		link.extend(ETHER_SCAN_POSTFIX.as_bytes());
-		link.extend(ETHER_SCAN_TOKEN.as_bytes());
+		link.extend(affix_set.postfix.as_bytes());
+		link.extend(affix_set.api_token.as_bytes());
 
 		// Get the json
 		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
 		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
-		let balances = Self::parse_multi_balances(response);
+		let balances = parser(response);
 
 		match balances {
 			Some(data) => {
 				let mut total_balance: u64 = 0;
 				for balance in data {
-					//let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
 					total_balance = total_balance + balance;
 				}
 				let call = Call::record_balance(account.clone(), block, total_balance);
