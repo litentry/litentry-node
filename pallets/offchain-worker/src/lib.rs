@@ -71,8 +71,8 @@ decl_storage! {
 		TotalClaims get(fn total_claims): u64;
 		/// Record the accounts send claims in latest block
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
-		/// Record account's ethereum balance
-		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => u64;
+		/// Record account's btc and ethereum balance
+		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u64, u64);
 	}
 }
 
@@ -80,7 +80,7 @@ decl_event!(
 	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId, 
 					BlockNumber = <T as frame_system::Trait>::BlockNumber, {
 		/// Event for account and its ethereum balance
-		BalanceGot(AccountId, BlockNumber, u64),
+		BalanceGot(AccountId, BlockNumber, u64, u64),
 	}
 );
 
@@ -130,16 +130,17 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			block: T::BlockNumber,
-			balance: u64
+			btc_balance: u64,
+			eth_balance: u64,
 		) -> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
 			// Record the total claims processed
 			TotalClaims::put(Self::total_claims() + 1);
 			// Set balance 
-			<AccountBalance<T>>::insert(account.clone(), balance);
+			<AccountBalance<T>>::insert(account.clone(), (btc_balance, eth_balance));
 			// Spit out an event and Add to storage
-			Self::deposit_event(RawEvent::BalanceGot(account, block, balance));
+			Self::deposit_event(RawEvent::BalanceGot(account, block, btc_balance, eth_balance));
 
 			Ok(())
 		}
@@ -162,8 +163,6 @@ decl_module! {
 				});
 			}
 
-			Self::fetch_blockchain_info_account();
-
 			match Self::fetch_etherscan(accounts, block) {
 				Ok(()) => debug::info!("Offchain Worker end successfully."),
 				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
@@ -176,19 +175,57 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn fetch_etherscan(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			Self::fetch_etherscan_account(account, block)?;
+			// Get the btc balance
+			let btc_balance = Self::fetch_blockchain_info_account(account, block);
+			// Get the eth balance
+			let eth_balance = Self::fetch_etherscan_account(account, block);
+
+			match (btc_balance, eth_balance) {
+				(Ok(btc), Ok(eth)) => {
+					let call = Call::record_balance(account.clone(), block, btc, eth);
+					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+					.map_err(|_| {
+						debug::error!("Failed in offchain_unsigned_tx");
+						<Error<T>>::InvalidNumber
+					});
+				},
+				(Ok(btc), _) => {
+					let call = Call::record_balance(account.clone(), block, btc, 0_64);
+					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+					.map_err(|_| {
+						debug::error!("Failed in offchain_unsigned_tx");
+						<Error<T>>::InvalidNumber
+					});
+				},
+				(_, Ok(eth)) => {
+					let call = Call::record_balance(account.clone(), block, 0_64, eth);
+					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+					.map_err(|_| {
+						debug::error!("Failed in offchain_unsigned_tx");
+						<Error<T>>::InvalidNumber
+					});
+				},
+				(_, _) => {
+					let call = Call::record_balance(account.clone(), block, 0_64, 0_64);
+					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+					.map_err(|_| {
+						debug::error!("Failed in offchain_unsigned_tx");
+						<Error<T>>::InvalidNumber
+					});
+				},
+			}
 		}
 		Ok(())
 	}
 
 	// fetch an account
-	fn fetch_etherscan_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(), Error<T>> {
+	fn fetch_etherscan_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(u64), Error<T>> {
 		// Get all ethereum accounts linked to Litentry		
 		let eth_accounts = <account_linker::EthereumLink<T>>::get(account);
 
 		// Return if no ethereum account linked
 		if eth_accounts.len() == 0 {
-			return Ok(())
+			return Ok(0_u64)
 		}
 
 		// Compose the web link
@@ -219,16 +256,10 @@ impl<T: Trait> Module<T> {
 					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
 					total_balance = total_balance + balance;
 				}
-				let call = Call::record_balance(account.clone(), block, total_balance);
-				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-				.map_err(|_| {
-					debug::error!("Failed in offchain_unsigned_tx");
-					<Error<T>>::InvalidNumber
-				});
+				Ok(total_balance)
 			},
-			None => (),
+			None => Ok(0_u64),
 		}
-		Ok(())
 	}
 
 	// Fetch json result from remote URL
@@ -334,7 +365,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Fetch Bitcoin balances from blockchain info
-	fn fetch_blockchain_info_account() ->  Result<(), Error<T>> {
+	fn fetch_blockchain_info_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(u64), Error<T>> {
 		// Get all bitcoin accounts linked to Litentry		
 		let mut btc_accounts: Vec<Vec<u8>> = Vec::new(); 
 		// TODO Just push twice to test the multi accounts request
@@ -343,7 +374,7 @@ impl<T: Trait> Module<T> {
 
 		// Return if no bitcoin account linked
 		if btc_accounts.len() == 0 {
-			return Ok(())
+			return Ok(0_u64);
 		}
 
 		// Compose the web link
@@ -367,23 +398,10 @@ impl<T: Trait> Module<T> {
 		debug::info!("Offchain Worker result {}.", response);
 		let balances = Self::parse_blockchain_balances(response);
 
-	//	match balances {
-	//		Some(data) => {
-	//			let mut total_balance: u64 = 0;
-	//			for item in data {
-	//				let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
-	//				total_balance = total_balance + balance;
-	//			}
-	//			let call = Call::record_balance(account.clone(), block, total_balance);
-	//			let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-	//			.map_err(|_| {
-	//				debug::error!("Failed in offchain_unsigned_tx");
-	//				<Error<T>>::InvalidNumber
-	//			});
-	//		},
-	//		None => (),
-	//	}
-		Ok(())
+		match balances {
+			Some(data) => Ok(data.into_iter().sum()),
+			None => Ok(0_u64),
+		}
 	}
 
 	// Parse balances from blockchain info response
@@ -469,10 +487,10 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 
 		match call {
-		Call::record_balance(account, block, price) => Ok(ValidTransaction {
+		Call::record_balance(account, block, btc_balance, eth_balance) => Ok(ValidTransaction {
 			priority: 0,
 			requires: vec![],
-			provides: vec![(account, block, price).encode()],
+			provides: vec![(account, block, btc_balance, eth_balance).encode()],
 			longevity: TransactionLongevity::max_value(),
 			propagate: true,
 		}),
