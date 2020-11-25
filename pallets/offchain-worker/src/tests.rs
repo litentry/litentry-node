@@ -191,6 +191,16 @@ fn test_parse_balance() {
 	assert_eq!(Some(vec!['1', '2']), <Module<TestRuntime>>::parse_balance(balance));
 }
 
+#[test]
+fn test_parse_blockchain_balances() {
+	let double_balances = r#"
+	{
+		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":30,"n_tx":2635,"total_received":6835384571},
+		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
+	}"#;
+	assert_eq!(Some(vec![30, 1220]), <Module<TestRuntime>>::parse_blockchain_balances(double_balances));
+}
+
 // #[test]
 // fn test_offchain_unsigned_tx() {
 // 	let (mut t, pool_state, _offchain_state) = ExternalityBuilder::build();
