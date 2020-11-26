@@ -187,6 +187,22 @@ fn test_parse_blockchain_info_balances() {
 		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
 	}"#;
 	assert_eq!(Some(vec![30, 1220]), <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+
+	// Test case should fail because fraction of the first balance value is non zero
+	let double_balances = r#"
+	{
+		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":30.5,"n_tx":2635,"total_received":6835384571},
+		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
+	}"#;
+	assert_eq!(None, <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+
+	// Test case should fail because first balance value is negative
+	let double_balances = r#"
+	{
+		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":-30,"n_tx":2635,"total_received":6835384571},
+		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
+	}"#;
+	assert_eq!(None, <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
 }
 
 // #[test]

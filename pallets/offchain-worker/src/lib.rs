@@ -372,7 +372,19 @@ impl<T: Trait> Module<T> {
 								k.iter().all(|k| Some(*k) == matching_chars.next())
 							})
 							.and_then(|v| match v.1 {
-								JsonValue::Number(balance) => Some(balance.integer as u128), // TODO error handling here
+								JsonValue::Number(balance) => {
+									if balance.fraction != 0 || balance.fraction_length != 0 || balance.integer < 0 {
+										// Number received with fraction or negative, abort this request
+										None
+									} else {
+										Some( 
+											if balance.exponent == 0 {
+												balance.integer as u128 
+											} else {
+												balance.integer as u128 * 10u128.pow(balance.exponent as u32)
+											})
+									}
+								},
 								_ => None,
 							})?);
 						},
