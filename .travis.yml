@@ -1,0 +1,17 @@
+branches:
+  only:
+    - develop
+language: rust
+rust:
+  - nightly-2020-10-06
+cache:
+  - cargo
+before_script:
+  - rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-06
+  - rustup component add rustfmt --toolchain=nightly-2020-10-06
+  - rustup component add clippy --toolchain=nightly-2020-10-06 || cargo +nightly-2020-10-06 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+script:
+  - cargo build --release
+  # in order to also check tests and non-default crate features, use
+  # - cargo clippy --all-targets --all-features -- -D warnings -A clippy::large-enum-variant
+  - cargo test --release
