@@ -155,13 +155,13 @@ impl ExternalityBuilder {
 }
 
 #[test]
-fn test_chars_to_u64() {
+fn test_chars_to_u128() {
 	let correct_balance = vec!['5', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
 
-	assert_eq!(Ok(500000000000000000), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+	assert_eq!(Ok(500000000000000000_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
 
 	let correct_balance = vec!['a', '2'];
-	assert_eq!(Err("Wrong u64 balance data format"), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+	assert_eq!(Err("Wrong u128 balance data format"), <Module<TestRuntime>>::chars_to_u128(correct_balance));
 }
 
 #[test]
@@ -177,18 +177,6 @@ fn test_parse_etherscan_balances() {
 		]
 	}"#;
 	assert_eq!(Some(vec![12, 21]), <Module<TestRuntime>>::parse_etherscan_balances(double_balances));
-}
-
-#[test]
-fn test_parse_balance() {
-
-	let balance = r#"
-	{
-		"status": "1",
-		"message": "OK",
-		"result": "12"
-	}"#;
-	assert_eq!(Some(vec!['1', '2']), <Module<TestRuntime>>::parse_balance(balance));
 }
 
 #[test]
