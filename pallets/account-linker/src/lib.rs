@@ -16,19 +16,22 @@ mod util;
 pub const MAX_ETH_LINKS: usize = 3;
 
 pub trait Trait: frame_system::Trait {
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as AccountLinker {
-		EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
-	}
+    trait Store for Module<T: Trait> as TemplateModule {
+        pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
+    }
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
-		SomethingStored(u32, AccountId),
-	}
+    pub enum Event<T>
+    where
+        AccountId = <T as frame_system::Trait>::AccountId,
+    {
+        SomethingStored(u32, AccountId),
+    }
 );
 
 decl_error! {
