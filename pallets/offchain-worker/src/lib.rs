@@ -26,29 +26,48 @@ mod tests;
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
 mod urls {
-	pub enum HttpMethod {
-		GET,
-		POST,
+	pub enum BlockChainType {
+		ETH,
+		BTC,
 	}
 
-	pub struct UrlAffixSet<'a> {
+	pub struct HttpGet<'a> {
 
-		pub request_type: HttpMethod,
+		pub blockchain: BlockChainType,
+
+		// URL affix
 		pub prefix: &'a str,
 		pub delimiter: &'a str,
 		pub postfix: &'a str,
 		pub api_token: &'a str,
 
-		// Debug
-		//sample_acc: &'a str,
-		//sample_acc_add: &'a str,
 	}
 
-	pub const ETHERSCAN_AFFIX: UrlAffixSet = UrlAffixSet {
+	pub struct HttpPost<'a> {
+
+		pub blockchain: BlockChainType,
+
+		// URL affix
+		pub url_main: &'a str,
+		pub api_token: &'a str,
+
+		// Body affix
+		pub prefix: &'a str,
+		pub delimiter: &'a str,
+		pub postfix: &'a str,
+	}
+
+
+	pub enum HttpRequest<'a> {
+		GET(HttpGet<'a>),
+		POST(HttpPost<'a>),
+	}
+
+	pub const ETHERSCAN_REQUEST: HttpGet = HttpGet {
 		// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
 		// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
 
-		request_type: HttpMethod::GET,
+		blockchain: BlockChainType::ETH,
 		prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
 		delimiter: ",0x",
 		postfix: "&tag=latest&apikey=", 
@@ -57,16 +76,32 @@ mod urls {
 		//sample_acc_add: "",
 	};
 
-	pub const BLOCKCHAIN_INFO_AFFIX: UrlAffixSet = UrlAffixSet {
+	pub const BLOCKCHAIN_INFO_REQUEST: HttpGet = HttpGet {
 		// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
 		// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
 
-		request_type: HttpMethod::GET,
+		blockchain: BlockChainType::BTC,
 		prefix: "https://blockchain.info/balance?active=",
 		// The "%7C" is encoded of | delimiter in URL
 		delimiter: "%7C",
 		postfix: "",
 		api_token: "",
+		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
+	};
+
+	pub const INFURA_REQUEST: HttpPost = HttpPost {
+		// https://mainnet.infura.io/v3/aa0a6af5f94549928307febe80612a2a
+		// Head: "Content-Type: application/json"
+		// Body: 
+
+		blockchain: BlockChainType::ETH,
+		url_main: "https://mainnet.infura.io/v3/",
+		api_token: "aa0a6af5f94549928307febe80612a2a",
+
+		prefix: r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["0x"#,
+		delimiter: "",
+		postfix: r#"","latest"],"id":1}"#,
 		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
 		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
 	};
@@ -205,8 +240,8 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			let eth_balance = Self::fetch_balances(account, urls::ETHERSCAN_AFFIX, &Self::parse_etherscan_balances);
-			let btc_balance = Self::fetch_balances(account, urls::BLOCKCHAIN_INFO_AFFIX, &Self::parse_blockchain_info_balances);
+			let eth_balance = Self::fetch_balances(account, urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &Self::parse_etherscan_balances);
+			let btc_balance = Self::fetch_balances(account, urls::HttpRequest::GET(urls::BLOCKCHAIN_INFO_REQUEST), &Self::parse_blockchain_info_balances);
 
 			match (btc_balance, eth_balance) {
 				(Ok(btc), Ok(eth)) => {
@@ -237,7 +272,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Generic function to fetch balance for specific link type
-	fn fetch_balances(account: &T::AccountId, affix_set: urls::UrlAffixSet, 
+	fn fetch_balances(account: &T::AccountId, request: urls::HttpRequest, 
 		parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
 		// TODO add match expression later to distinguish eth and btc
 		//      generic array would be the best choice here, however seems it's still not completed in rust
@@ -249,23 +284,31 @@ impl<T: Trait> Module<T> {
 			return Ok(0_u128)
 		}
 
-		// Compose the web link
-		let mut link: Vec<u8> = Vec::new();
-		link.extend(affix_set.prefix.as_bytes());
+		let result: Vec<u8> = match request {
+			urls::HttpRequest::GET(affix_set) => {
+				// Compose the web request url 
+				let mut link: Vec<u8> = Vec::new();
 
-		for (i, each_account) in wallet_accounts.iter().enumerate() {
-			// Append delimiter if there are more than one accounts in the account_vec
-			if i >=1 {
-				link.extend(affix_set.delimiter.as_bytes());
-			};
+				link.extend(affix_set.prefix.as_bytes());
 
-			link.extend(Self::address_to_string(each_account));
-		}
-		link.extend(affix_set.postfix.as_bytes());
-		link.extend(affix_set.api_token.as_bytes());
+				for (i, each_account) in wallet_accounts.iter().enumerate() {
+					// Append delimiter if there are more than one accounts in the account_vec
+					if i >=1 {
+						link.extend(affix_set.delimiter.as_bytes());
+					};
 
-		// Get the json
-		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
+					link.extend(Self::address_to_string(each_account));
+				}
+				link.extend(affix_set.postfix.as_bytes());
+				link.extend(affix_set.api_token.as_bytes());
+
+				// Get the json
+				Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
+			},
+			// TODO finish POST
+			_ => Vec::new(),
+
+		};
 		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
 		let balances = parser(response);
