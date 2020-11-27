@@ -20,13 +20,17 @@ pub trait Trait: frame_system::Trait {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as AccountLinker {
-		EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
+	trait Store for Module<T: Trait> as TemplateModule {
+		pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
 	}
+
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
+	pub enum Event<T>
+	where
+		AccountId = <T as frame_system::Trait>::AccountId,
+	{
 		SomethingStored(u32, AccountId),
 	}
 );
@@ -39,7 +43,7 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where 
+	pub struct Module<T: Trait> for enum Call where
 		origin: T::Origin {
 		// Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
@@ -67,12 +71,13 @@ decl_module! {
 			let mut bytes = b"Link Litentry: ".encode();
 			let mut account_vec = account.encode(); // Warning: must be 32 bytes
 			let mut expiring_block_number_vec = expiring_block_number.encode(); // Warning: must be 4 bytes
-			
+
 			// let mut bytes = [0u8; 51]; // TODO: need to change this if b0 changes
 			// let b0 = b"Link Litentry: ";
 			// bytes[..15].copy_from_slice(b0);
 			// bytes[15..47].copy_from_slice(&account_vec);
 			// bytes[47..].copy_from_slice(&block_number_vec);
+
 
 			bytes.append(&mut account_vec);
 			bytes.append(&mut expiring_block_number_vec);
@@ -81,7 +86,7 @@ decl_module! {
 
 			let mut msg = [0u8; 32];
 			let mut sig = [0u8; 65];
-	
+
 			msg[..32].copy_from_slice(&hash[..32]);
 			sig[..32].copy_from_slice(&r[..32]);
 			sig[32..64].copy_from_slice(&s[..32]);
@@ -113,9 +118,9 @@ decl_module! {
 			index: u32,
 			addr: [u8; 20],
 		) -> dispatch::DispatchResult {
-		
+
 			let _ = ensure_signed(origin)?;
-		
+
 			let index = index as usize;
 			let mut addrs = Self::eth_addresses(&account);
 			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) { // allow linking 3 eth addresses. TODO: do not use hard code
@@ -125,11 +130,11 @@ decl_module! {
 			} else {
 				addrs[index] = addr;
 			}
-		
+
 			<EthereumLink<T>>::insert(account, addrs);
-		
+
 			Ok(())
-		
+
 		}
 	}
 }
