@@ -21,26 +21,17 @@ Secret Key URI `//Alice` is account:
 
 ## Start the seed node
 /home/ec2-user/litentry-node/target/release/litentry-node \
-  --chain litentry.json \
-  --alice \
-  --port 30333 \
-  --ws-port 9945 \
-  --rpc-port 9933 \
-  --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
-  --telemetry-url 'wss://telemetry.polkadot.io/submit/ 0' \
-  --validator \
-   --bootnodes /ip4/18.163.198.168/tcp/30333/p2p/12D3KooWCSctENzjm1mML2Ym5i6nBue79a7ch3mYGPVMXxRHkSLZ \
+  --chain /home/ec2-user/litentry-node/testnet/litentry.json \
   > /home/ec2-user/logs/litentry.log 2>&1 &
 
-## Start the other node 
+## Start the alice node in local
+target/release/litentry-node --chain testnet/litentry.json --bootnodes /ip4/18.163.198.168/tcp/30333/p2p/12D3KooWCSctENzjm1mML2Ym5i6nBue79a7ch3mYGPVMXxRHkSLZ  --alice --validator
+
+## Start the alice in aws
 /home/ec2-user/litentry-node/target/release/litentry-node \
   --chain litentry.json \
-  --bob \
-  --port 30333 \
-  --ws-port 9945 \
-  --rpc-port 9933 \
-  --telemetry-url 'wss://telemetry.polkadot.io/submit/ 0' \
-  --validator 
+  --alice \
+  --validator \
   --bootnodes /ip4/18.163.198.168/tcp/30333/p2p/12D3KooWCSctENzjm1mML2Ym5i6nBue79a7ch3mYGPVMXxRHkSLZ > /home/ec2-user/logs/litentry.log 2>&1 &
 
 
