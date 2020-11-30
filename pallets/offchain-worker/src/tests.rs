@@ -165,6 +165,21 @@ fn test_chars_to_u128() {
 }
 
 #[test]
+fn test_fetch_balances() {
+	let test_account = "4d88dc5D528A33E4b8bE579e9476715F60060582".as_bytes();
+	let mut test_account_byte_array = [0u8; 20];
+	test_account_byte_array.copy_from_slice(&test_account[0..20]);
+	
+	let mut accounts: Vec<[u8; 20]> = Vec::new();
+	accounts.push(test_account_byte_array);
+
+	match <Module<TestRuntime>>::fetch_balances(accounts, urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &<Module<TestRuntime>>::parse_etherscan_balances) {
+		Ok(b) => assert_eq!(500000000000000000_u128, b),
+		Err(_) => panic!("Error occurs in test_fetch_balance!!"),
+	};
+}
+
+#[test]
 fn test_parse_etherscan_balances() {
 	let double_balances = r#"
 	{

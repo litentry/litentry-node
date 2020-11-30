@@ -240,8 +240,8 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			let eth_balance = Self::fetch_balances(account, urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &Self::parse_etherscan_balances);
-			let btc_balance = Self::fetch_balances(account, urls::HttpRequest::GET(urls::BLOCKCHAIN_INFO_REQUEST), &Self::parse_blockchain_info_balances);
+			let eth_balance = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &Self::parse_etherscan_balances);
+			let btc_balance = Self::fetch_balances(Vec::new(), urls::HttpRequest::GET(urls::BLOCKCHAIN_INFO_REQUEST), &Self::parse_blockchain_info_balances);
 
 			match (btc_balance, eth_balance) {
 				(Ok(btc), Ok(eth)) => {
@@ -272,12 +272,10 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Generic function to fetch balance for specific link type
-	fn fetch_balances(account: &T::AccountId, request: urls::HttpRequest, 
+	fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest, 
 		parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
 		// TODO add match expression later to distinguish eth and btc
 		//      generic array would be the best choice here, however seems it's still not completed in rust
-		// Get all linked accounts for this account
-		let wallet_accounts: Vec<[u8; 20]> = <account_linker::EthereumLink<T>>::get(account);
 
 		// Return if no account linked
 		if wallet_accounts.len() == 0 {
