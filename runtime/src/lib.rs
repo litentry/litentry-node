@@ -39,10 +39,10 @@ pub use frame_support::{
 	},
 };
 
-/// Import the template pallet.
+/// Import the account-linker pallet.
 pub use pallet_account_linker;
 
-/// Import the template pallet.
+/// Import the offchain-worker pallet.
 pub use pallet_offchain_worker;
 
 /// An index to a block.
