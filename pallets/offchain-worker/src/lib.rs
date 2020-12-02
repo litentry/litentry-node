@@ -78,7 +78,8 @@ mod urls {
 
 	pub const BLOCKCHAIN_INFO_REQUEST: HttpGet = HttpGet {
 		// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
-		// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
+		// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER 
+		//                         + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
 
 		blockchain: BlockChainType::BTC,
 		prefix: "https://blockchain.info/balance?active=",
@@ -94,14 +95,24 @@ mod urls {
 		// https://mainnet.infura.io/v3/aa0a6af5f94549928307febe80612a2a
 		// Head: "Content-Type: application/json"
 		// Body: 
+		//			[
+		//				{
+		//					"jsonrpc":"2.0",
+		//					"method":"eth_getBalance",
+		//					"id":1,
+		//					"params":["0x0x4d88dc5D528A33E4b8bE579e9476715F60060582","latest"]
+		//				},
+		//				...
+		//			]
 
 		blockchain: BlockChainType::ETH,
-		url_main: "https://mainnet.infura.io/v3/",
+		url_main: "https://ropsten.infura.io/v3/",
 		api_token: "aa0a6af5f94549928307febe80612a2a",
 
-		prefix: r#"{"jsonrpc":"2.0","method":"eth_accounts","params":["0x"#,
-		delimiter: "",
-		postfix: r#"","latest"],"id":1}"#,
+		// Batch multiple json rpc calls within one request, therefore wrapped with [] and separated by ,
+		prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+		delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+		postfix: r#"","latest"]}]"#,
 		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
 		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
 	};
@@ -283,28 +294,48 @@ impl<T: Trait> Module<T> {
 		}
 
 		let result: Vec<u8> = match request {
-			urls::HttpRequest::GET(affix_set) => {
-				// Compose the web request url 
+			urls::HttpRequest::GET(get_req) => {
+				// Compose the get request URL 
 				let mut link: Vec<u8> = Vec::new();
-
-				link.extend(affix_set.prefix.as_bytes());
+				link.extend(get_req.prefix.as_bytes());
 
 				for (i, each_account) in wallet_accounts.iter().enumerate() {
 					// Append delimiter if there are more than one accounts in the account_vec
 					if i >=1 {
-						link.extend(affix_set.delimiter.as_bytes());
+						link.extend(get_req.delimiter.as_bytes());
 					};
 
 					link.extend(Self::address_to_string(each_account));
 				}
-				link.extend(affix_set.postfix.as_bytes());
-				link.extend(affix_set.api_token.as_bytes());
+				link.extend(get_req.postfix.as_bytes());
+				link.extend(get_req.api_token.as_bytes());
 
-				// Get the json
-				Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
+				// Fetch json response via http get
+				Self::fetch_json_http_get(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
 			// TODO finish POST
-			_ => Vec::new(),
+			urls::HttpRequest::POST(post_req) => {
+				// Compose the post request URL
+				let mut link: Vec<u8> = Vec::new();
+				link.extend(post_req.url_main.as_bytes());
+				link.extend(post_req.api_token.as_bytes());
+
+				// Batch multiple JSON-RPC calls for multiple getBalance operations within one post
+				let mut body: Vec<u8> = Vec::new();
+				body.extend(post_req.prefix.as_bytes());
+
+				for (i, each_account) in wallet_accounts.iter().enumerate() {
+					// Append delimiter if there are more than one accounts in the account_vec
+					if i >=1 {
+						body.extend(post_req.delimiter.as_bytes());
+					};
+
+					body.extend(Self::address_to_string(each_account));
+				}
+
+				// Fetch json response via http post 
+				Self::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
+			},
 
 		};
 		
@@ -323,14 +354,40 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	// Fetch json result from remote URL
-	fn fetch_json<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
+	// Fetch json result from remote URL with get method
+	fn fetch_json_http_get<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
 	
-		debug::info!("Offchain Worker request url is {}.", remote_url_str);
+		debug::info!("Offchain Worker get request url is {}.", remote_url_str);
 		let pending = http::Request::get(remote_url_str).send()
 			.map_err(|_| "Error in sending http GET request")?;
+	
+		let response = pending.wait()
+			.map_err(|_| "Error in waiting http response back")?;
+	
+		if response.code != 200 {
+			debug::warn!("Unexpected status code: {}", response.code);
+			return Err("Non-200 status code returned from http request");
+		}
+	
+		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
+		
+		let balance =
+			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
+	
+		Ok(balance.as_bytes().to_vec())
+	}
+
+	// Fetch json result from remote URL with post method
+	fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<Vec<u8>, &'static str> {
+		let remote_url_str = core::str::from_utf8(remote_url)
+			.map_err(|_| "Error in converting remote_url to string")?;
+	
+		debug::info!("Offchain Worker post request url is {}.", remote_url_str);
+		
+		let pending = http::Request::post(remote_url_str, vec![body]).send()
+			.map_err(|_| "Error in sending http POST request")?;
 	
 		let response = pending.wait()
 			.map_err(|_| "Error in waiting http response back")?;
