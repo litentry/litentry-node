@@ -69,16 +69,10 @@ decl_module! {
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
 
 			let mut bytes = b"Link Litentry: ".encode();
-			let mut account_vec = account.encode(); // Warning: must be 32 bytes
+			// Warning: must be 32 bytes
+			let mut account_vec = account.encode();
 			// Warning: must be 4 bytes
 			let mut expiring_block_number_vec = expiring_block_number.encode();
-
-			// let mut bytes = [0u8; 51]; // TODO: need to change this if b0 changes
-			// let b0 = b"Link Litentry: ";
-			// bytes[..15].copy_from_slice(b0);
-			// bytes[15..47].copy_from_slice(&account_vec);
-			// bytes[47..].copy_from_slice(&block_number_vec);
-
 
 			bytes.append(&mut account_vec);
 			bytes.append(&mut expiring_block_number_vec);
@@ -98,8 +92,7 @@ decl_module! {
 
 			let index = index as usize;
 			let mut addrs = Self::eth_addresses(&account);
-			// NOTE: allow linking 3 eth addresses.
-			// TODO: do not use hard code
+			// NOTE: allow linking `MAX_ETH_LINKS` eth addresses.
 			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) {
 				addrs.push(addr);
 			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
@@ -126,8 +119,7 @@ decl_module! {
 
 			let index = index as usize;
 			let mut addrs = Self::eth_addresses(&account);
-			// NOTE: allow linking 3 eth addresses.
-			// TODO: do not use hard code
+			// NOTE: allow linking `MAX_ETH_LINKS` eth addresses.
 			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) {
 				addrs.push(addr);
 			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
