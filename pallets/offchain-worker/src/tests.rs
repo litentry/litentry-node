@@ -157,11 +157,13 @@ impl ExternalityBuilder {
 #[test]
 fn test_chars_to_u128() {
 	let correct_balance = vec!['5', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
-
 	assert_eq!(Ok(500000000000000000_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
 
 	let correct_balance = vec!['a', '2'];
 	assert_eq!(Err("Wrong u128 balance data format"), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+
+	let correct_balance = vec!['0', 'x', 'f', 'e'];
+	assert_eq!(Ok(254_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
 }
 
 #[test]
@@ -220,6 +222,18 @@ fn test_parse_blockchain_info_balances() {
 		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
 	}"#;
 	assert_eq!(None, <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+}
+
+#[test]
+fn test_parse_infura_balances() {
+	let double_balances = r#"
+	[
+		{"jsonrpc":"2.0","id":1,"result":"0x4563918244f40000"},
+		{"jsonrpc":"2.0","id":1,"result":"0xff"}
+	]
+	"#;
+
+	assert_eq!(Some(vec![5000000000000000000, 255]), <Module<TestRuntime>>::parse_infura_balances(double_balances));
 }
 
 // #[test]
