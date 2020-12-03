@@ -1,10 +1,10 @@
 pub fn addr_from_sig(msg: [u8; 32], sig: [u8; 65]) -> Result<[u8; 20], sp_io::EcdsaVerifyError> {
-    let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg)?;
-    let hashed_pk = sp_io::hashing::keccak_256(&pubkey);
+	let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg)?;
+	let hashed_pk = sp_io::hashing::keccak_256(&pubkey);
 
-    let mut addr = [0u8; 20];
-    addr[..20].copy_from_slice(&hashed_pk[12..32]);
-    Ok(addr)
+	let mut addr = [0u8; 20];
+	addr[..20].copy_from_slice(&hashed_pk[12..32]);
+	Ok(addr)
 }
 
 #[cfg(test)]
@@ -41,7 +41,7 @@ mod tests {
 
 	#[test]
 	fn wrong_msg() {
-		
+
 		let msg = decode("626364656667").unwrap();
 		let msg = eth_data_hash(msg);
 
@@ -59,7 +59,7 @@ mod tests {
 
 	#[test]
 	fn sig_from_another_addr() {
-		
+
 		let msg = decode("61626364656667").unwrap();
 		let msg = eth_data_hash(msg);
 
