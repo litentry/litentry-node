@@ -10,9 +10,7 @@ use frame_support::dispatch::DispatchError;
 fn generate_msg(account: u64, block_number: u64) -> Message {
 
 	let mut bytes = b"Link Litentry: ".encode();
-	// Warning: must be 32 bytes
 	let mut account_vec = account.encode();
-	// Warning: must be 4 bytes
 	let mut expiring_block_number_vec = block_number.encode();
 
 	bytes.append(&mut account_vec);
@@ -44,8 +42,8 @@ fn it_works_for_default_value() {
 		let block_number: u64 = 9999;
 
 		let mut bytes = b"Link Litentry: ".encode();
-		let mut account_vec = account.encode(); // Warning: must be 32 bytes
-		let mut expiring_block_number_vec = block_number.encode(); // Warning: must be 4 bytes
+		let mut account_vec = account.encode();
+		let mut expiring_block_number_vec = block_number.encode();
 
 		bytes.append(&mut account_vec);
 		bytes.append(&mut expiring_block_number_vec);

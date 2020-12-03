@@ -69,9 +69,7 @@ decl_module! {
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
 
 			let mut bytes = b"Link Litentry: ".encode();
-			// Warning: must be 32 bytes
 			let mut account_vec = account.encode();
-			// Warning: must be 4 bytes
 			let mut expiring_block_number_vec = expiring_block_number.encode();
 
 			bytes.append(&mut account_vec);
