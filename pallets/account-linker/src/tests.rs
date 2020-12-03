@@ -1,7 +1,6 @@
 use crate::mock::*;
 
 use codec::Encode;
-use frame_support::assert_ok;
 use parity_crypto::Keccak256;
 use parity_crypto::publickey::{Random, Generator, Message, sign, KeyPair};
 use frame_support::dispatch::DispatchError;
@@ -10,9 +9,7 @@ use frame_support::dispatch::DispatchError;
 fn generate_msg(account: u64, block_number: u64) -> Message {
 
 	let mut bytes = b"Link Litentry: ".encode();
-	// Warning: must be 32 bytes
 	let mut account_vec = account.encode();
-	// Warning: must be 4 bytes
 	let mut expiring_block_number_vec = block_number.encode();
 
 	bytes.append(&mut account_vec);
@@ -34,49 +31,6 @@ fn generate_rsv(sig: &[u8; 65]) -> ([u8; 32], [u8; 32], u8) {
 	let v = sig[64];
 	(r, s, v)
 }
-
-
-#[test]
-fn it_works_for_default_value() {
-	new_test_ext().execute_with(|| {
-
-		let account: u64 = 5;
-		let block_number: u64 = 9999;
-
-		let mut bytes = b"Link Litentry: ".encode();
-		let mut account_vec = account.encode(); // Warning: must be 32 bytes
-		let mut expiring_block_number_vec = block_number.encode(); // Warning: must be 4 bytes
-
-		bytes.append(&mut account_vec);
-		bytes.append(&mut expiring_block_number_vec);
-
-		let msg = Message::from(bytes.keccak256());
-
-		let mut gen = Random{};
-		let key_pair = gen.generate().unwrap();
-
-		let sig = sign(key_pair.secret(), &msg).unwrap().into_electrum();
-
-		let mut r = [0u8; 32];
-		let mut s = [0u8; 32];
-
-		r[..32].copy_from_slice(&sig[..32]);
-		s[..32].copy_from_slice(&sig[32..64]);
-		let v = sig[64];
-
-		assert_ok!(AccountLinker::link(
-			Origin::signed(1),
-			account,
-			0,
-			block_number,
-			r,
-			s,
-			v
-		));
-		assert_eq!(AccountLinker::eth_addresses(account), vec![key_pair.address().to_fixed_bytes()]);
-	});
-}
-
 
 #[test]
 fn test_invalid_block_number() {
