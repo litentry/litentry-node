@@ -1,7 +1,6 @@
 use crate::mock::*;
 
 use codec::Encode;
-use frame_support::assert_ok;
 use parity_crypto::Keccak256;
 use parity_crypto::publickey::{Random, Generator, Message, sign, KeyPair};
 use frame_support::dispatch::DispatchError;
