@@ -254,6 +254,8 @@ impl<T: Trait> Module<T> {
 			let eth_balance = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &Self::parse_etherscan_balances);
 			let btc_balance = Self::fetch_balances(Vec::new(), urls::HttpRequest::GET(urls::BLOCKCHAIN_INFO_REQUEST), &Self::parse_blockchain_info_balances);
 
+			//let etc_balance_infura = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::POST(urls::INFURA_REQUEST), &Self::parse_infura_balances);
+
 			match (btc_balance, eth_balance) {
 				(Ok(btc), Ok(eth)) => {
 					let call = Call::record_balance(account.clone(), block, btc, eth);
@@ -507,15 +509,72 @@ impl<T: Trait> Module<T> {
 		})
 	}
 
+	// Parse the balance from infura response
+	fn parse_infura_balances(price_str: &str) -> Option<Vec<u128>> {
+		//[
+		//  {"jsonrpc":"2.0","id":1,"result":"0x4563918244f40000"},
+		//  {"jsonrpc":"2.0","id":1,"result":"0xff"}
+		//]
+		let val = lite_json::parse_json(price_str);
+		let mut balance_vec: Vec<u128> = Vec::new();
+
+		val.ok().and_then(|v| { 
+				match v {
+					JsonValue::Array(res_array) => {
+						for each in res_array {
+							match each {
+								JsonValue::Object(obj) => {
+									balance_vec.push({
+										obj.into_iter().find(|(k, _)|{
+											let mut chars = "result".chars(); 
+											k.iter().all(|k| Some(*k) == chars.next())
+										}).and_then(|v|{
+											match v.1 {
+												JsonValue::String(balance) => {
+													match Self::chars_to_u128(balance){
+														Ok(b) => Some(b),
+														Err(_) => None,
+													}
+												},
+												_ => None,
+											}
+										})?
+									});
+								},
+								_ => (),
+							}
+						};
+						Some(balance_vec)
+					},
+					_ => None,
+				}
+			})
+	}
+
 	// u128 number string to u128
 	pub fn chars_to_u128(vec: Vec<char>) -> Result<u128, &'static str> {
+		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not) 
+		let base = if vec.len() >= 2 && vec[0] == '0' && vec[1] == 'x' {
+			// This is a hexadecimal number
+			16
+		} else {
+			// This is a decimal number
+			10
+		};
+
 		let mut result: u128 = 0;
-		for item in vec {
-			let n = item.to_digit(10);
+		for (i, item) in vec.iter().enumerate() {
+			// Skip the 0 and x digit for hex. 
+			// Using skip here instead of a new vec build to avoid an unnecessary copy operation
+			if base == 16 && i < 2 {
+				continue;
+			}
+
+			let n = item.to_digit(base);
 			match n {
 				Some(i) => {
 					let i_64 = i as u128; 
-					result = result * 10 + i_64;
+					result = result * base as u128 + i_64;
 					if result < i_64 {
 						return Err("Wrong u128 balance data format");
 					}
