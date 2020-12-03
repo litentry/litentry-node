@@ -33,49 +33,6 @@ fn generate_rsv(sig: &[u8; 65]) -> ([u8; 32], [u8; 32], u8) {
 	(r, s, v)
 }
 
-
-#[test]
-fn it_works_for_default_value() {
-	new_test_ext().execute_with(|| {
-
-		let account: u64 = 5;
-		let block_number: u64 = 9999;
-
-		let mut bytes = b"Link Litentry: ".encode();
-		let mut account_vec = account.encode();
-		let mut expiring_block_number_vec = block_number.encode();
-
-		bytes.append(&mut account_vec);
-		bytes.append(&mut expiring_block_number_vec);
-
-		let msg = Message::from(bytes.keccak256());
-
-		let mut gen = Random{};
-		let key_pair = gen.generate().unwrap();
-
-		let sig = sign(key_pair.secret(), &msg).unwrap().into_electrum();
-
-		let mut r = [0u8; 32];
-		let mut s = [0u8; 32];
-
-		r[..32].copy_from_slice(&sig[..32]);
-		s[..32].copy_from_slice(&sig[32..64]);
-		let v = sig[64];
-
-		assert_ok!(AccountLinker::link(
-			Origin::signed(1),
-			account,
-			0,
-			block_number,
-			r,
-			s,
-			v
-		));
-		assert_eq!(AccountLinker::eth_addresses(account), vec![key_pair.address().to_fixed_bytes()]);
-	});
-}
-
-
 #[test]
 fn test_invalid_block_number() {
 	new_test_ext().execute_with(|| {
