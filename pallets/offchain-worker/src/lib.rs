@@ -254,7 +254,8 @@ impl<T: Trait> Module<T> {
 			let eth_balance = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &Self::parse_etherscan_balances);
 			let btc_balance = Self::fetch_balances(Vec::new(), urls::HttpRequest::GET(urls::BLOCKCHAIN_INFO_REQUEST), &Self::parse_blockchain_info_balances);
 
-			//let etc_balance_infura = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::POST(urls::INFURA_REQUEST), &Self::parse_infura_balances);
+			// TODO Dispatch different nodes to fetch etc balance from different sources 
+			let etc_balance_infura = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::POST(urls::INFURA_REQUEST), &Self::parse_infura_balances);
 
 			match (btc_balance, eth_balance) {
 				(Ok(btc), Ok(eth)) => {
@@ -262,6 +263,12 @@ impl<T: Trait> Module<T> {
 					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 					if result.is_err() {
 						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+					// TODO Test code
+					if eth == etc_balance_infura? {
+						debug::info!("Infura returned balance equals to etherscan returned balance.");
+					} else {
+						debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
 					}
 				},
 				(Ok(btc), _) => {
@@ -276,6 +283,12 @@ impl<T: Trait> Module<T> {
 					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 					if result.is_err() {
 						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+					// TODO Test code
+					if eth == etc_balance_infura? {
+						debug::info!("Infura returned balance equals to etherscan returned balance.");
+					} else {
+						debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
 					}
 				},
 				_ => (),
@@ -334,6 +347,7 @@ impl<T: Trait> Module<T> {
 
 					body.extend(Self::address_to_string(each_account));
 				}
+				body.extend(post_req.postfix.as_bytes());
 
 				// Fetch json response via http post 
 				Self::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
@@ -385,8 +399,11 @@ impl<T: Trait> Module<T> {
 	fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<Vec<u8>, &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
+		let request_body_str = core::str::from_utf8(body)
+			.map_err(|_| "Error in converting body to string")?;
 	
 		debug::info!("Offchain Worker post request url is {}.", remote_url_str);
+		debug::info!("Offchain Worker post request body is {}.", request_body_str);
 		
 		let pending = http::Request::post(remote_url_str, vec![body]).send()
 			.map_err(|_| "Error in sending http POST request")?;
