@@ -164,6 +164,10 @@ fn test_chars_to_u128() {
 
 	let correct_balance = vec!['0', 'x', 'f', 'e'];
 	assert_eq!(Ok(254_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+
+	// Corner case check
+	let correct_balance = vec!['0', 'x'];
+	assert_eq!(Ok(0_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
 }
 
 #[test]
