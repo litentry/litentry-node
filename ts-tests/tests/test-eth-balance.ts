@@ -110,9 +110,12 @@ async function asset_claim(api: ApiPromise, alice: KeyringPair) {
 			console.log(`Transfer is ${result.status}`);
 			if (result.status.isInBlock) {
 				console.log(`Transfer included at blockHash ${result.status.asInBlock}`);
+        console.log(`Waiting for finalization... (can take a minute)`);
+      } else if (result.status.isFinalized) {
+				console.log(`Transfer finalized at blockHash ${result.status.asFinalized}`);
 				unsub();
 				resolve({
-					block: result.status.asInBlock.toString(),
+					block: result.status.asFinalized.toString(),
 				});
 			}
 		});
