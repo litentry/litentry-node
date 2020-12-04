@@ -1,0 +1,22 @@
+{
+  "name": "litentry-integration-test",
+  "version": "1.0.0",
+  "description": "This is a set of integration tests for litentry runtime, using TypeScript.",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "ts-node tests/*.ts"
+  },
+  "author": "Han Zhao",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^4.1.2"
+  },
+  "dependencies": {
+    "@polkadot/api": "^2.9.2-10",
+    "chai": "^4.2.0",
+    "ts-node": "^9.1.0"
+  }
+}
