@@ -1,6 +1,6 @@
 use crate::*;
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
-use codec::{alloc::sync::Arc, Decode};
+use codec::{alloc::sync::Arc};
 use parking_lot::RwLock;
 use sp_core::{
 	offchain::{
@@ -193,7 +193,7 @@ fn test_parse_etherscan_balances() {
 	{
 	"status": "1",
 	"message": "OK",
-	"result": 
+	"result":
 		[
 			{"account":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","balance":"12"},
 			{"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"21"}

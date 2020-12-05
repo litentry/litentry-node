@@ -28,6 +28,7 @@ sp-std = { default-features = false, version = '2.0.0' }
 sp-core = { default-features = false, version = '2.0.0'}
 sp-runtime = { default-features = false, version = '2.0.0' }
 hex = "0.4.2"
+parity-crypto = {version = "0.4.0", features = ["publickey"] }
 
 [features]
 default = ['std']

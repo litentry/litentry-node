@@ -153,7 +153,7 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId, 
+	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId,
 					BlockNumber = <T as frame_system::Trait>::BlockNumber, {
 		/// Event for account and its ethereum balance
 		BalanceGot(AccountId, BlockNumber, u128, u128),
@@ -352,7 +352,6 @@ impl<T: Trait> Module<T> {
 				// Fetch json response via http post 
 				Self::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
-
 		};
 		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
@@ -376,22 +375,23 @@ impl<T: Trait> Module<T> {
 			.map_err(|_| "Error in converting remote_url to string")?;
 	
 		debug::info!("Offchain Worker get request url is {}.", remote_url_str);
+
 		let pending = http::Request::get(remote_url_str).send()
 			.map_err(|_| "Error in sending http GET request")?;
-	
+
 		let response = pending.wait()
 			.map_err(|_| "Error in waiting http response back")?;
-	
+
 		if response.code != 200 {
 			debug::warn!("Unexpected status code: {}", response.code);
 			return Err("Non-200 status code returned from http request");
 		}
-	
+
 		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-		
+
 		let balance =
 			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-	
+
 		Ok(balance.as_bytes().to_vec())
 	}
 
@@ -429,7 +429,7 @@ impl<T: Trait> Module<T> {
 		// {
 		// "status": "1",
 		// "message": "OK",
-		// "result": 
+		// "result":
 		//   [
 		//     {"account":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","balance":"3804372455842738500000001"},
 		//     {"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"2571179226430511381996287"}
@@ -443,17 +443,17 @@ impl<T: Trait> Module<T> {
 				JsonValue::Object(obj) => {
 					obj.into_iter()
 						.find(|(k, _)|  {
-							let mut chars = "result".chars(); 
+							let mut chars = "result".chars();
 							k.iter().all(|k| Some(*k) == chars.next())
 					})
-					.and_then(|v|  { 
+					.and_then(|v|  {
 						match v.1 {
 							JsonValue::Array(res_array) => {
 								for element in res_array {
 									match element {
 										JsonValue::Object(element_vec) => {
-											for pair in element_vec {			
-												let mut balance_chars = "balance".chars();		
+											for pair in element_vec {
+												let mut balance_chars = "balance".chars();
 												if pair.0.iter().all(|k| Some(*k) == balance_chars.next()) {
 													match pair.1 {
 														JsonValue::String(balance) => {
@@ -641,7 +641,7 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 			longevity: TransactionLongevity::max_value(),
 			propagate: true,
 		}),
-		
+
 		Call::clear_claim(block) => Ok(ValidTransaction {
 			priority: 0,
 			requires: vec![],

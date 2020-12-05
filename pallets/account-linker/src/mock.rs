@@ -1,10 +1,14 @@
-use crate::{Module, Trait};
-use sp_core::H256;
+use crate::{Module, Trait, Error};
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
-};
 use frame_system as system;
+use sp_core::H256;
+use sp_runtime::{
+	testing::Header,
+	traits::{BlakeTwo256, IdentityLookup},
+	Perbill,
+};
+
+pub use crate::MAX_ETH_LINKS;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -53,9 +57,13 @@ impl Trait for Test {
 	type Event = ();
 }
 
-pub type TemplateModule = Module<Test>;
+pub type AccountLinker = Module<Test>;
+pub type AccountLinkerError = Error<Test>;
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	system::GenesisConfig::default()
+		.build_storage::<Test>()
+		.unwrap()
+		.into()
 }
