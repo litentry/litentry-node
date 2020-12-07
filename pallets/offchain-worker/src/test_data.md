@@ -11,3 +11,24 @@ account = 0x167453188a05082e3b347c1c518f3dd55d37fbbf
 
 https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x167453188a05082e3b347c1c518f3dd55d37fbbf&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
 
+# Bitcoin
+167453188a05082e3b347c1c518f3dd55d37fbbf
+
+## bitcoin private key
+84cf749059a129fb57a6070411234a4fe58e7f04c959b66fa7c8b2d2dd609749
+
+## full public key
+04a097026e876544a0e40f9ca836435560af4470e161bf60c23465dcb3151c947d1cbe052875211972107e25fca8dd939f1c6e749a43862673ec5cf7a8567f2d95
+
+## compressed public key
+03a097026e876544a0e40f9ca836435560af4470e161bf60c23465dcb3151c947d
+
+## hash160
+00828a58e0b8731f81e9f0f4e789a6ddeef62ef108
+
+## bs58 address
+1CuEaUAvhm8D9SkwEVLgqvFShHAxKmbW19
+
+
+
+

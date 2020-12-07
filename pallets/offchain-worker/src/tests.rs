@@ -155,17 +155,40 @@ impl ExternalityBuilder {
 }
 
 #[test]
-fn test_chars_to_u64() {
+fn test_chars_to_u128() {
 	let correct_balance = vec!['5', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
-
-	assert_eq!(Ok(500000000000000000), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+	assert_eq!(Ok(500000000000000000_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
 
 	let correct_balance = vec!['a', '2'];
-	assert_eq!(Err("Wrong u64 balance data format"), <Module<TestRuntime>>::chars_to_u64(correct_balance));
+	assert_eq!(Err("Wrong u128 balance data format"), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+
+	let correct_balance = vec!['0', 'x', 'f', 'e'];
+	assert_eq!(Ok(254_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+
+	// Corner case check
+	let correct_balance = vec!['0', 'x'];
+	assert_eq!(Ok(0_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
 }
 
 #[test]
-fn test_parse_multi_balances() {
+//fn test_fetch_balances() {
+//	let test_account = "4d88dc5D528A33E4b8bE579e9476715F60060582".as_bytes();
+//	let mut test_account_byte_array = [0u8; 20];
+//	test_account_byte_array.copy_from_slice(&test_account[0..20]);
+//	
+//	let mut accounts: Vec<[u8; 20]> = Vec::new();
+//	accounts.push(test_account_byte_array);
+//
+//	sp_io::TestExternalities::default().execute_with(|| {
+//		match <Module<TestRuntime>>::fetch_balances(accounts, urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &<Module<TestRuntime>>::parse_etherscan_balances) {
+//			Ok(b) => assert_eq!(500000000000000000_u128, b),
+//			Err(_) => panic!("Error occurs in test_fetch_balance!!"),
+//		};
+//	});
+//}
+
+#[test]
+fn test_parse_etherscan_balances() {
 	let double_balances = r#"
 	{
 	"status": "1",
@@ -176,19 +199,45 @@ fn test_parse_multi_balances() {
 			{"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"21"}
 		]
 	}"#;
-	assert_eq!(Some(vec![vec!['1', '2'], vec!['2', '1']]), <Module<TestRuntime>>::parse_multi_balances(double_balances));
+	assert_eq!(Some(vec![12, 21]), <Module<TestRuntime>>::parse_etherscan_balances(double_balances));
 }
 
 #[test]
-fn test_parse_balance() {
-
-	let balance = r#"
+fn test_parse_blockchain_info_balances() {
+	let double_balances = r#"
 	{
-		"status": "1",
-		"message": "OK",
-		"result": "12"
+		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":30,"n_tx":2635,"total_received":6835384571},
+		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
 	}"#;
-	assert_eq!(Some(vec!['1', '2']), <Module<TestRuntime>>::parse_balance(balance));
+	assert_eq!(Some(vec![30, 1220]), <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+
+	// Test case should fail because fraction of the first balance value is non zero
+	let double_balances = r#"
+	{
+		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":30.5,"n_tx":2635,"total_received":6835384571},
+		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
+	}"#;
+	assert_eq!(None, <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+
+	// Test case should fail because first balance value is negative
+	let double_balances = r#"
+	{
+		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":-30,"n_tx":2635,"total_received":6835384571},
+		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
+	}"#;
+	assert_eq!(None, <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+}
+
+#[test]
+fn test_parse_infura_balances() {
+	let double_balances = r#"
+	[
+		{"jsonrpc":"2.0","id":1,"result":"0x4563918244f40000"},
+		{"jsonrpc":"2.0","id":1,"result":"0xff"}
+	]
+	"#;
+
+	assert_eq!(Some(vec![5000000000000000000, 255]), <Module<TestRuntime>>::parse_infura_balances(double_balances));
 }
 
 // #[test]

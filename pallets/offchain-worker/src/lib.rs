@@ -25,14 +25,99 @@ mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
-// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
-// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
-pub const ETHER_SCAN_PREFIX: &str = "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x";
-pub const ETHER_SCAN_DELIMITER: &str = ",0x";
-pub const ETHER_SCAN_POSTFIX: &str = "&tag=latest&apikey=";
-pub const ETHER_SCAN_TOKEN: &str = "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB";
+mod urls {
+	pub enum BlockChainType {
+		ETH,
+		BTC,
+	}
 
-pub const SAMPLE_ACCOUNT: &str = "742d35Cc6634C0532925a3b844Bc454e4438f44e";
+	pub struct HttpGet<'a> {
+
+		pub blockchain: BlockChainType,
+
+		// URL affix
+		pub prefix: &'a str,
+		pub delimiter: &'a str,
+		pub postfix: &'a str,
+		pub api_token: &'a str,
+
+	}
+
+	pub struct HttpPost<'a> {
+
+		pub blockchain: BlockChainType,
+
+		// URL affix
+		pub url_main: &'a str,
+		pub api_token: &'a str,
+
+		// Body affix
+		pub prefix: &'a str,
+		pub delimiter: &'a str,
+		pub postfix: &'a str,
+	}
+
+
+	pub enum HttpRequest<'a> {
+		GET(HttpGet<'a>),
+		POST(HttpPost<'a>),
+	}
+
+	pub const ETHERSCAN_REQUEST: HttpGet = HttpGet {
+		// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
+		// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
+
+		blockchain: BlockChainType::ETH,
+		prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
+		delimiter: ",0x",
+		postfix: "&tag=latest&apikey=", 
+		api_token: "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB",
+		//sample_acc: "742d35Cc6634C0532925a3b844Bc454e4438f44e",
+		//sample_acc_add: "",
+	};
+
+	pub const BLOCKCHAIN_INFO_REQUEST: HttpGet = HttpGet {
+		// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
+		// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER 
+		//                         + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
+
+		blockchain: BlockChainType::BTC,
+		prefix: "https://blockchain.info/balance?active=",
+		// The "%7C" is encoded of | delimiter in URL
+		delimiter: "%7C",
+		postfix: "",
+		api_token: "",
+		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
+	};
+
+	pub const INFURA_REQUEST: HttpPost = HttpPost {
+		// https://mainnet.infura.io/v3/aa0a6af5f94549928307febe80612a2a
+		// Head: "Content-Type: application/json"
+		// Body: 
+		//			[
+		//				{
+		//					"jsonrpc":"2.0",
+		//					"method":"eth_getBalance",
+		//					"id":1,
+		//					"params":["0x0x4d88dc5D528A33E4b8bE579e9476715F60060582","latest"]
+		//				},
+		//				...
+		//			]
+
+		blockchain: BlockChainType::ETH,
+		url_main: "https://ropsten.infura.io/v3/",
+		api_token: "aa0a6af5f94549928307febe80612a2a",
+
+		// Batch multiple json rpc calls within one request, therefore wrapped with [] and separated by ,
+		prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+		delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+		postfix: r#"","latest"]}]"#,
+		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
+	};
+}
+
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -62,8 +147,8 @@ decl_storage! {
 		TotalClaims get(fn total_claims): u64;
 		/// Record the accounts send claims in latest block
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
-		/// Record account's ethereum balance
-		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => u64;
+		/// Record account's btc and ethereum balance
+		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u128, u128);
 	}
 }
 
@@ -71,7 +156,7 @@ decl_event!(
 	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId,
 					BlockNumber = <T as frame_system::Trait>::BlockNumber, {
 		/// Event for account and its ethereum balance
-		BalanceGot(AccountId, BlockNumber, u64),
+		BalanceGot(AccountId, BlockNumber, u128, u128),
 	}
 );
 
@@ -121,16 +206,17 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			block: T::BlockNumber,
-			balance: u64
+			btc_balance: u128,
+			eth_balance: u128,
 		) -> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
 			// Record the total claims processed
 			TotalClaims::put(Self::total_claims() + 1);
-			// Set balance
-			<AccountBalance<T>>::insert(account.clone(), balance);
+			// Set balance 
+			<AccountBalance<T>>::insert(account.clone(), (btc_balance, eth_balance));
 			// Spit out an event and Add to storage
-			Self::deposit_event(RawEvent::BalanceGot(account, block, balance));
+			Self::deposit_event(RawEvent::BalanceGot(account, block, btc_balance, eth_balance));
 
 			Ok(())
 		}
@@ -153,7 +239,7 @@ decl_module! {
 				});
 			}
 
-			match Self::fetch_etherscan(accounts, block) {
+			match Self::update(accounts, block) {
 				Ok(()) => debug::info!("Offchain Worker end successfully."),
 				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
 			}
@@ -163,69 +249,133 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
-	fn fetch_etherscan(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
+	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			Self::fetch_etherscan_account(account, block)?;
+			let eth_balance = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &Self::parse_etherscan_balances);
+			let btc_balance = Self::fetch_balances(Vec::new(), urls::HttpRequest::GET(urls::BLOCKCHAIN_INFO_REQUEST), &Self::parse_blockchain_info_balances);
+
+			// TODO Dispatch different nodes to fetch etc balance from different sources 
+			let etc_balance_infura = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::POST(urls::INFURA_REQUEST), &Self::parse_infura_balances);
+
+			match (btc_balance, eth_balance) {
+				(Ok(btc), Ok(eth)) => {
+					let call = Call::record_balance(account.clone(), block, btc, eth);
+					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+					if result.is_err() {
+						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+					// TODO Test code
+					if eth == etc_balance_infura? {
+						debug::info!("Infura returned balance equals to etherscan returned balance.");
+					} else {
+						debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
+					}
+				},
+				(Ok(btc), _) => {
+					let call = Call::record_balance(account.clone(), block, btc, 0_u128);
+					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+					if result.is_err() {
+						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+				},
+				(_, Ok(eth)) => {
+					let call = Call::record_balance(account.clone(), block, 0_u128, eth);
+					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+					if result.is_err() {
+						debug::info!("Offchain Worker failed to submit record balance transaction");
+					}
+					// TODO Test code
+					if eth == etc_balance_infura? {
+						debug::info!("Infura returned balance equals to etherscan returned balance.");
+					} else {
+						debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
+					}
+				},
+				_ => (),
+			}
 		}
 		Ok(())
 	}
 
-	// fetch an account
-	fn fetch_etherscan_account(account: &T::AccountId, block: T::BlockNumber) ->  Result<(), Error<T>> {
-		// Get all ethereum accounts linked to Litentry
-		let eth_accounts = <account_linker::EthereumLink<T>>::get(account);
+	// Generic function to fetch balance for specific link type
+	fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest, 
+		parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
+		// TODO add match expression later to distinguish eth and btc
+		//      generic array would be the best choice here, however seems it's still not completed in rust
 
-		// Return if no ethereum account linked
-		if eth_accounts.len() == 0 {
-			return Ok(())
+		// Return if no account linked
+		if wallet_accounts.len() == 0 {
+			return Ok(0_u128)
 		}
 
-		// Compose the web link
-		let mut link: Vec<u8> = Vec::new();
-		link.extend(ETHER_SCAN_PREFIX.as_bytes());
+		let result: Vec<u8> = match request {
+			urls::HttpRequest::GET(get_req) => {
+				// Compose the get request URL 
+				let mut link: Vec<u8> = Vec::new();
+				link.extend(get_req.prefix.as_bytes());
 
-		for (i, eth_account) in eth_accounts.iter().enumerate() {
-			// Append delimiter if there are more than one accounts in the account_vec
-			if i >=1 {
-				link.extend(ETHER_SCAN_DELIMITER.as_bytes());
-			};
+				for (i, each_account) in wallet_accounts.iter().enumerate() {
+					// Append delimiter if there are more than one accounts in the account_vec
+					if i >=1 {
+						link.extend(get_req.delimiter.as_bytes());
+					};
 
-			link.extend(Self::address_to_string(eth_account));
-		}
-		link.extend(ETHER_SCAN_POSTFIX.as_bytes());
-		link.extend(ETHER_SCAN_TOKEN.as_bytes());
+					link.extend(Self::address_to_string(each_account));
+				}
+				link.extend(get_req.postfix.as_bytes());
+				link.extend(get_req.api_token.as_bytes());
 
-		// Get the json
-		let result = Self::fetch_json(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?;
+				// Fetch json response via http get
+				Self::fetch_json_http_get(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
+			},
+			// TODO finish POST
+			urls::HttpRequest::POST(post_req) => {
+				// Compose the post request URL
+				let mut link: Vec<u8> = Vec::new();
+				link.extend(post_req.url_main.as_bytes());
+				link.extend(post_req.api_token.as_bytes());
 
+				// Batch multiple JSON-RPC calls for multiple getBalance operations within one post
+				let mut body: Vec<u8> = Vec::new();
+				body.extend(post_req.prefix.as_bytes());
+
+				for (i, each_account) in wallet_accounts.iter().enumerate() {
+					// Append delimiter if there are more than one accounts in the account_vec
+					if i >=1 {
+						body.extend(post_req.delimiter.as_bytes());
+					};
+
+					body.extend(Self::address_to_string(each_account));
+				}
+				body.extend(post_req.postfix.as_bytes());
+
+				// Fetch json response via http post 
+				Self::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
+			},
+		};
+		
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
-		let balances = Self::parse_multi_balances(response);
+		let balances = parser(response);
 
 		match balances {
 			Some(data) => {
-				let mut total_balance: u64 = 0;
-				for item in data {
-					let balance = Self::chars_to_u64(item).map_err(|_| Error::<T>::InvalidNumber)?;
+				let mut total_balance: u128 = 0;
+				for balance in data {
 					total_balance = total_balance + balance;
 				}
-				let call = Call::record_balance(account.clone(), block, total_balance);
-				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-				.map_err(|_| {
-					debug::error!("Failed in offchain_unsigned_tx");
-					<Error<T>>::InvalidNumber
-				});
+				Ok(total_balance)
 			},
-			None => (),
+			None => Ok(0_u128),
 		}
-		Ok(())
 	}
 
-	// Fetch json result from remote URL
-	fn fetch_json<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
+	// Fetch json result from remote URL with get method
+	fn fetch_json_http_get<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
+	
+		debug::info!("Offchain Worker get request url is {}.", remote_url_str);
 
-		debug::info!("Offchain Worker request url is {}.", remote_url_str);
 		let pending = http::Request::get(remote_url_str).send()
 			.map_err(|_| "Error in sending http GET request")?;
 
@@ -245,8 +395,37 @@ impl<T: Trait> Module<T> {
 		Ok(balance.as_bytes().to_vec())
 	}
 
-	// Parse the balance from ethscan response
-	fn parse_multi_balances(price_str: &str) -> Option<Vec<Vec<char>>> {
+	// Fetch json result from remote URL with post method
+	fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<Vec<u8>, &'static str> {
+		let remote_url_str = core::str::from_utf8(remote_url)
+			.map_err(|_| "Error in converting remote_url to string")?;
+		let request_body_str = core::str::from_utf8(body)
+			.map_err(|_| "Error in converting body to string")?;
+	
+		debug::info!("Offchain Worker post request url is {}.", remote_url_str);
+		debug::info!("Offchain Worker post request body is {}.", request_body_str);
+		
+		let pending = http::Request::post(remote_url_str, vec![body]).send()
+			.map_err(|_| "Error in sending http POST request")?;
+	
+		let response = pending.wait()
+			.map_err(|_| "Error in waiting http response back")?;
+	
+		if response.code != 200 {
+			debug::warn!("Unexpected status code: {}", response.code);
+			return Err("Non-200 status code returned from http request");
+		}
+	
+		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
+		
+		let balance =
+			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
+	
+		Ok(balance.as_bytes().to_vec())
+	}
+
+	// Parse the balance from etherscan response
+	fn parse_etherscan_balances(price_str: &str) -> Option<Vec<u128>> {
 		// {
 		// "status": "1",
 		// "message": "OK",
@@ -257,9 +436,9 @@ impl<T: Trait> Module<T> {
 		//   ]
 		// }
 		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<Vec<char>> = Vec::new();
+		let mut balance_vec: Vec<u128> = Vec::new();
 
-		let balances = val.ok().and_then(|v| {
+		val.ok().and_then(|v| { 
 				match v {
 				JsonValue::Object(obj) => {
 					obj.into_iter()
@@ -277,7 +456,13 @@ impl<T: Trait> Module<T> {
 												let mut balance_chars = "balance".chars();
 												if pair.0.iter().all(|k| Some(*k) == balance_chars.next()) {
 													match pair.1 {
-														JsonValue::String(balance) => balance_vec.push(balance),
+														JsonValue::String(balance) => {
+															match Self::chars_to_u128(balance){
+																Ok(b) => balance_vec.push(b),
+																// TODO Proper error handling here would be necessary later
+																Err(_) => return None,
+															}
+														},
 														_ => (),
 													}
 												}
@@ -294,50 +479,124 @@ impl<T: Trait> Module<T> {
 				},
 				_ => None
 			}
-		})?;
-
-		Some(balances)
+		})
 	}
 
-	// Parse a single balance from ethscan respose
-	fn parse_balance(price_str: &str) -> Option<Vec<char>> {
+	// Parse balances from blockchain info response
+	fn parse_blockchain_info_balances(price_str: &str) -> Option<Vec<u128>>{
 		// {
-		// "status": "1",
-		// "message": "OK",
-		// "result": "3795858430482738500000001"
-		// }
+		//	"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":6835384571,"n_tx":2635,"total_received":6835384571},
+		//  "15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":0,"n_tx":4,"total_received":310925609}
+	  // }
 		let val = lite_json::parse_json(price_str);
-		let balance = val.ok().and_then(|v| match v {
+		let mut balance_vec: Vec<u128> = Vec::new();
+
+		val.ok().and_then(|v| match v {
 			JsonValue::Object(obj) => {
-				obj.into_iter()
-					.find(|(k, _)| {
-						let mut chars = "result".chars();
-						k.iter().all(|k| Some(*k) == chars.next())
-					})
-					.and_then(|v| match v.1 {
-						JsonValue::String(balance) => Some(balance),
-						_ => None,
-					})
+				for each in obj {
+					match each.1 {
+						JsonValue::Object(balance_pairs) => {
+							balance_vec.push(balance_pairs.into_iter().find(|(k, _)|{
+								let mut matching_chars = "final_balance".chars();
+								k.iter().all(|k| Some(*k) == matching_chars.next())
+							})
+							.and_then(|v| match v.1 {
+								JsonValue::Number(balance) => {
+									if balance.fraction != 0 || balance.fraction_length != 0 || balance.integer < 0 {
+										// Number received with fraction or negative, abort this request
+										None
+									} else {
+										Some( 
+											if balance.exponent == 0 {
+												balance.integer as u128 
+											} else {
+												balance.integer as u128 * 10u128.pow(balance.exponent as u32)
+											})
+									}
+								},
+								_ => None,
+							})?);
+						},
+						_ => ()
+					}
+				};
+				Some(balance_vec)
 			},
 			_ => None
-		})?;
-		Some(balance)
+		})
 	}
 
-	// U64 number string to u64
-	pub fn chars_to_u64(vec: Vec<char>) -> Result<u64, &'static str> {
-		let mut result: u64 = 0;
-		for item in vec {
-			let n = item.to_digit(10);
+	// Parse the balance from infura response
+	fn parse_infura_balances(price_str: &str) -> Option<Vec<u128>> {
+		//[
+		//  {"jsonrpc":"2.0","id":1,"result":"0x4563918244f40000"},
+		//  {"jsonrpc":"2.0","id":1,"result":"0xff"}
+		//]
+		let val = lite_json::parse_json(price_str);
+		let mut balance_vec: Vec<u128> = Vec::new();
+
+		val.ok().and_then(|v| { 
+				match v {
+					JsonValue::Array(res_array) => {
+						for each in res_array {
+							match each {
+								JsonValue::Object(obj) => {
+									balance_vec.push({
+										obj.into_iter().find(|(k, _)|{
+											let mut chars = "result".chars(); 
+											k.iter().all(|k| Some(*k) == chars.next())
+										}).and_then(|v|{
+											match v.1 {
+												JsonValue::String(balance) => {
+													match Self::chars_to_u128(balance){
+														Ok(b) => Some(b),
+														Err(_) => None,
+													}
+												},
+												_ => None,
+											}
+										})?
+									});
+								},
+								_ => (),
+							}
+						};
+						Some(balance_vec)
+					},
+					_ => None,
+				}
+			})
+	}
+
+	// u128 number string to u128
+	pub fn chars_to_u128(vec: Vec<char>) -> Result<u128, &'static str> {
+		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not) 
+		let base = if vec.len() >= 2 && vec[0] == '0' && vec[1] == 'x' {
+			// This is a hexadecimal number
+			16
+		} else {
+			// This is a decimal number
+			10
+		};
+
+		let mut result: u128 = 0;
+		for (i, item) in vec.iter().enumerate() {
+			// Skip the 0 and x digit for hex. 
+			// Using skip here instead of a new vec build to avoid an unnecessary copy operation
+			if base == 16 && i < 2 {
+				continue;
+			}
+
+			let n = item.to_digit(base);
 			match n {
 				Some(i) => {
-					let i_64 = i as u64;
-					result = result * 10 + i_64;
+					let i_64 = i as u128; 
+					result = result * base as u128 + i_64;
 					if result < i_64 {
-						return Err("Wrong u64 balance data format");
+						return Err("Wrong u128 balance data format");
 					}
 				},
-				None => return Err("Wrong u64 balance data format"),
+				None => return Err("Wrong u128 balance data format"),
 			}
 		}
 		return Ok(result)
@@ -375,10 +634,10 @@ impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
 	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 
 		match call {
-		Call::record_balance(account, block, price) => Ok(ValidTransaction {
+		Call::record_balance(account, block, btc_balance, eth_balance) => Ok(ValidTransaction {
 			priority: 0,
 			requires: vec![],
-			provides: vec![(account, block, price).encode()],
+			provides: vec![(account, block, btc_balance, eth_balance).encode()],
 			longevity: TransactionLongevity::max_value(),
 			propagate: true,
 		}),
