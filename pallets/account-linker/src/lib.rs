@@ -14,6 +14,7 @@ mod tests;
 mod util;
 
 pub const MAX_ETH_LINKS: usize = 3;
+pub const MAX_BTC_LINKS: usize = 3;
 
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -23,7 +24,6 @@ decl_storage! {
 	trait Store for Module<T: Trait> as TemplateModule {
 		pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
 	}
-
 }
 
 decl_event!(
@@ -53,7 +53,7 @@ decl_module! {
 
 		/// separate sig to r, s, v because runtime only support array parameter with length <= 32
 		#[weight = 1]
-		pub fn link(
+		pub fn link_eth(
 			origin,
 			account: T::AccountId,
 			index: u32,

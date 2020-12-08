@@ -5,7 +5,6 @@ use parity_crypto::Keccak256;
 use parity_crypto::publickey::{Random, Generator, Message, sign, KeyPair};
 use frame_support::dispatch::DispatchError;
 
-
 fn generate_msg(account: u64, block_number: u64) -> Message {
 
 	let mut bytes = b"Link Litentry: ".encode();
@@ -46,7 +45,7 @@ fn test_invalid_block_number() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let result = AccountLinker::link(Origin::signed(1), account, 0, block_number, r, s, v);
+		let result = AccountLinker::link_eth(Origin::signed(1), account, 0, block_number, r, s, v);
 		assert_eq!(result.is_err(), true);
 		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::LinkRequestExpired)));
 	});
@@ -72,7 +71,7 @@ fn test_insert_eth_address() {
 
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link(Origin::signed(1),
+			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										i as u32,
 										block_number + i as u64,
@@ -100,7 +99,7 @@ fn test_update_eth_address() {
 			let sig = generate_sig(&key_pair, &msg);
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link(Origin::signed(1),
+			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										i as u32,
 										block_number + i as u64,
@@ -119,7 +118,7 @@ fn test_update_eth_address() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let _ = AccountLinker::link(Origin::signed(1),
+		let _ = AccountLinker::link_eth(Origin::signed(1),
 									account,
 									index,
 									block_number,
@@ -150,7 +149,7 @@ fn test_eth_address_pool_overflow() {
 			let sig = generate_sig(&key_pair, &msg);
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link(Origin::signed(1),
+			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										index as u32,
 										block_number,
