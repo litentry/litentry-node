@@ -12,7 +12,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-mod util;
+mod util_eth;
 mod util_btc;
 
 pub const MAX_ETH_LINKS: usize = 3;
@@ -88,7 +88,7 @@ decl_module! {
 			sig[32..64].copy_from_slice(&s[..32]);
 			sig[64] = v;
 
-			let addr = util::addr_from_sig(msg, sig)
+			let addr = util_eth::addr_from_sig(msg, sig)
 				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
 			let index = index as usize;
@@ -155,11 +155,11 @@ decl_module! {
 
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);
-			// NOTE: allow linking `MAX_ETH_LINKS` eth addresses.
-			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) {
+			// NOTE: allow linking `MAX_BTC_LINKS` btc addresses.
+			if (index >= addrs.len()) && (addrs.len() != MAX_BTC_LINKS) {
 				addrs.push(addr);
-			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
-				addrs[MAX_ETH_LINKS - 1] = addr;
+			} else if (index >= addrs.len()) && (addrs.len() == MAX_BTC_LINKS) {
+				addrs[MAX_BTC_LINKS - 1] = addr;
 			} else {
 				addrs[index] = addr;
 			}
