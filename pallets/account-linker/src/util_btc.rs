@@ -8,7 +8,7 @@ use ripemd160::Ripemd160;
 pub fn btc_addr_from_pk_uncompressed(pk: [u8; 65]) -> [u8; 25] {
     let mut result = [0u8; 25];
 
-    // Now only support P2PKH (Mainnet)
+    // Now only support P2PKH (Mainnet) prefix = 0
     result[0] = 0;
     result[1..21].copy_from_slice(&hash160(&pk));
     let cs = checksum(&result[0..21]);
