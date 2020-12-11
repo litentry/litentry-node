@@ -4,6 +4,7 @@ members = [
     'pallets/account-linker',
     'pallets/offchain-worker',
     'runtime',
+    'server',
 ]
 
 [profile.dev]
