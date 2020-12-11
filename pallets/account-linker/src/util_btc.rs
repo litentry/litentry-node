@@ -2,8 +2,7 @@ use sha2::{Digest, Sha256};
 use ripemd160::Ripemd160;
 
 
-
-pub fn dhash160(bytes: &[u8]) -> [u8; 20] {
+pub fn hash160(bytes: &[u8]) -> [u8; 20] {
     let mut hasher_sha256 = Sha256::new();
     hasher_sha256.update(bytes);
     let digest = hasher_sha256.finalize();
@@ -47,7 +46,7 @@ mod tests {
 
 		let pk = decode("0450863AD64A87AE8A2FE83C1AF1A8403CB53F53E486D8511DAD8A04887E5B23522CD470243453A299FA9E77237716103ABC11A1DF38855ED6F2EE187E9C582BA6").unwrap();
 
-        let hash = dhash160(&pk);
+        let hash = hash160(&pk);
 
         let result = decode("010966776006953D5567439E5E39F86A0D273BEE").unwrap();
 		let mut hash_expected = [0u8; 20];
