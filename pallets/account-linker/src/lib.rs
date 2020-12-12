@@ -71,6 +71,7 @@ decl_module! {
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
 
+			// TODO: there is no eth prefix here
 			let mut bytes = b"Link Litentry: ".encode();
 			let mut account_vec = account.encode();
 			let mut expiring_block_number_vec = expiring_block_number.encode();
@@ -132,6 +133,7 @@ decl_module! {
 			bytes.append(&mut account_vec);
 			bytes.append(&mut expiring_block_number_vec);
 
+			// TODO: seems btc uses sha256???
 			let hash = sp_io::hashing::keccak_256(&bytes);
 
 			let mut msg = [0u8; 32];
