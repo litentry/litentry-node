@@ -5,7 +5,6 @@ use parity_crypto::Keccak256;
 use parity_crypto::publickey::{Random, Generator, Message, sign, KeyPair};
 use frame_support::dispatch::DispatchError;
 
-
 fn generate_msg(account: u64, block_number: u64) -> Message {
 
 	let mut bytes = b"Link Litentry: ".encode();
@@ -33,6 +32,62 @@ fn generate_rsv(sig: &[u8; 65]) -> ([u8; 32], [u8; 32], u8) {
 }
 
 #[test]
+fn test_btc_link() {
+	new_test_ext().execute_with(|| {
+
+		use bitcoin::network::constants::Network;
+		use bitcoin::util::address::Address;
+		use bitcoin::util::key;
+		use bitcoin::secp256k1::{Secp256k1, Message as BTCMessage};
+		use bitcoin::secp256k1::rand::thread_rng;
+		use base58::ToBase58;
+
+		// Generate random key pair
+		let s = Secp256k1::new();
+		let pair = s.generate_keypair(&mut thread_rng());
+		let public_key = key::PublicKey {
+			compressed: false,
+			key: pair.1,
+		};
+
+		// Generate pay-to-pubkey-hash address
+		let address = Address::p2pkh(&public_key, Network::Bitcoin);
+
+		let account: u64 = 5;
+		let block_number: u64 = 99999;
+
+		let mut bytes = b"Link Litentry: ".encode();
+		let mut account_vec = account.encode();
+		let mut expiring_block_number_vec = block_number.encode();
+	
+		bytes.append(&mut account_vec);
+		bytes.append(&mut expiring_block_number_vec);
+
+		let message = BTCMessage::from_slice(&bytes.keccak256()).unwrap();
+
+		let (v, rs) = s.sign_recoverable(&message, &pair.0).serialize_compact();
+
+		let mut r = [0u8; 32];
+		let mut s = [0u8; 32];
+	
+		r[..32].copy_from_slice(&rs[..32]);
+		s[..32].copy_from_slice(&rs[32..64]);
+
+		let _ = AccountLinker::link_btc(Origin::signed(1),
+									account,
+									0,
+									block_number,
+									r,
+									s,
+									v.to_i32() as u8);
+
+
+		assert_eq!(AccountLinker::btc_addresses(account)[0].to_base58(), address.to_string());
+
+	});
+}
+
+#[test]
 fn test_invalid_block_number() {
 	new_test_ext().execute_with(|| {
 
@@ -46,7 +101,7 @@ fn test_invalid_block_number() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let result = AccountLinker::link(Origin::signed(1), account, 0, block_number, r, s, v);
+		let result = AccountLinker::link_eth(Origin::signed(1), account, 0, block_number, r, s, v);
 		assert_eq!(result.is_err(), true);
 		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::LinkRequestExpired)));
 	});
@@ -58,7 +113,6 @@ fn test_insert_eth_address() {
 
 		let account: u64 = 5;
 		let block_number: u64 = 99999;
-
 
 		let mut gen = Random{};
 		let mut expected_vec = Vec::new();
@@ -72,7 +126,7 @@ fn test_insert_eth_address() {
 
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link(Origin::signed(1),
+			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										i as u32,
 										block_number + i as u64,
@@ -100,7 +154,7 @@ fn test_update_eth_address() {
 			let sig = generate_sig(&key_pair, &msg);
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link(Origin::signed(1),
+			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										i as u32,
 										block_number + i as u64,
@@ -119,7 +173,7 @@ fn test_update_eth_address() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let _ = AccountLinker::link(Origin::signed(1),
+		let _ = AccountLinker::link_eth(Origin::signed(1),
 									account,
 									index,
 									block_number,
@@ -150,7 +204,7 @@ fn test_eth_address_pool_overflow() {
 			let sig = generate_sig(&key_pair, &msg);
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link(Origin::signed(1),
+			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										index as u32,
 										block_number,
