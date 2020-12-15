@@ -56,7 +56,7 @@ impl ToBase58 for [u8] {
 
 #[cfg(test)]
 mod tests {
-    use super::ToBase58;
+	use super::ToBase58;
 	use std::str::from_utf8;
 	use hex::decode;
 
