@@ -13,7 +13,7 @@ pub trait ToBase58 {
 impl ToBase58 for [u8] {
 	fn to_base58(&self) -> Vec<u8> {
 		let zcount = self.iter().take_while(|x| **x == 0).count();
-        let size = (self.len() - zcount) * 138 / 100 + 1;
+		let size = (self.len() - zcount) * 138 / 100 + 1;
 		let mut buffer = vec![0u8; size];
 
 		let mut i = zcount;
@@ -50,7 +50,7 @@ impl ToBase58 for [u8] {
 			j += 1;
 		}
 
-        result
+		result
 	}
 }
 
