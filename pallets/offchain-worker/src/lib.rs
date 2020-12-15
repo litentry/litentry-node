@@ -23,6 +23,8 @@ use codec::Encode;
 #[cfg(test)]
 mod tests;
 
+mod utils;
+
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
 mod urls {
