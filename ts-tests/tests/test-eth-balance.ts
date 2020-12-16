@@ -29,6 +29,7 @@ const keyring = new Keyring({ type: 'sr25519' });
 const test_eth_address = "[0x4d88dc5d528a33e4b8be579e9476715f60060582]";
 
 const msgPrefix: string = "Link Litentry: ";
+//const msgPrefix: string = "\x19Ethereum Signed Message:\n51Link Litentry: ";
 
 const keyringRopsten = new Keyring({ type: 'ecdsa' });
 
@@ -85,7 +86,8 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
 
   const registry = new TypeRegistry();
 
-	let encodedPrefix = new Text(registry, msgPrefix).toU8a();
+  // Encode prefix with concatenated utf8, instead of SCALE codec to match the litentry node implementation
+	let encodedPrefix = Buffer.from(msgPrefix, 'utf-8');
   
   //let encodedAccId = registry.createType('AccountId', alice.address).toU8a();
   //console.log(encodedAccId);
@@ -98,11 +100,11 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
   encodedMsg.set(alice.addressRaw, encodedPrefix.length);
   encodedMsg.set(encodedExpiredBlock, encodedPrefix.length + alice.addressRaw.length);
 
-	//let hash = crypto.keccakAsU8a(encodedMsg);
-	let hash = Hash.keccak256s(encodedMsg);
+  // To use manual hash and sign method, a prefix of \x19Ethereum ... is also needed to be prefixed manually
+	//let hash = Hash.keccak256s(encodedMsg);
 
-  console.log('hash is:');
-  console.log(hash);
+  //console.log('hash is:');
+  //console.log(hash);
 
 	// TODO ECDSA keyring from polkadot crypto still not working
   //const ropstenTestAcc = keyringRopsten.addFromUri('0xe82c0c4259710bb0d6cf9f9e8d0ad73419c1278a14d375e5ca691e7618103011');
@@ -115,18 +117,22 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
   //let s = signedMsg.slice(32, 64);
   //let v = signedMsg[64];
 	
-	var signature = Account.sign(hash, privateKey);
-	var vrs = Account.decodeSignature(signature);
-  console.log('signature is :');
-  console.log(signature);
+  //var signature = Account.sign(hash, privateKey);
+  //var vrs = Account.decodeSignature(signature);
+  //console.log("signature is :");
+  //console.log(signature);
   //console.log(keyPair.sign(new Buffer(hash2.slice(2), "hex"), { canonical: true }).r.toString(16));
 
 	// TODO Web3 could be used to replace eth-lib once ethereum prefix is implemented on account-linker side
-	//const Web3=require('web3');
-	//const web3 = new Web3('wss://ropsten.infura.io/ws/v3/aa0a6af5f94549928307febe80612a2a');
-  //let acc  = web3.eth.accounts.privateKeyToAccount('0xe82c0c4259710bb0d6cf9f9e8d0ad73419c1278a14d375e5ca691e7618103011');
-  //var string = new TextDecoder("utf-8").decode(encodedMsg);
-  //let signedMsg = acc.sign(string);
+	const Web3 = require("web3");
+  const web3 = new Web3(
+    "wss://ropsten.infura.io/ws/v3/aa0a6af5f94549928307febe80612a2a"
+  );
+  let acc = web3.eth.accounts.privateKeyToAccount(privateKey);
+   // Convert byte array to hex string
+  let hexString = "0x" + Buffer.from(encodedMsg).toString('hex');
+
+  let signedMsg = acc.sign(hexString);
 
 	// This is not needed as eth-lib already does the same job
 	//let keyPair = ec.keyFromPrivate(new Buffer(privateKey.slice(2), "hex"));
@@ -138,7 +144,8 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
 	//    pubKey.encodeCompressed("hex"));
   // let signature = ec.sign(hash, privKey, "hex", {canonical: true});
 
-  const transaction = api.tx.accountLinkerModule.link(alice.address, 0, 10000, vrs[1], vrs[2], vrs[0]);
+  //const transaction = api.tx.accountLinkerModule.link(alice.address, 0, 10000, vrs[1], vrs[2], vrs[0]);
+  const transaction = api.tx.accountLinkerModule.link(alice.address, 0, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
 
   const link = new Promise<{ block: string }>(async (resolve, reject) => {
 		const unsub = await transaction.signAndSend(alice, (result) => {

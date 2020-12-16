@@ -1,3 +1,7 @@
+use codec::Encode;
+use sp_std::prelude::*;
+use frame_support::{debug};
+
 pub fn addr_from_sig(msg: [u8; 32], sig: [u8; 65]) -> Result<[u8; 20], sp_io::EcdsaVerifyError> {
 	let pubkey = sp_io::crypto::secp256k1_ecdsa_recover(&sig, &msg)?;
 	let hashed_pk = sp_io::hashing::keccak_256(&pubkey);
@@ -7,19 +11,33 @@ pub fn addr_from_sig(msg: [u8; 32], sig: [u8; 65]) -> Result<[u8; 20], sp_io::Ec
 	Ok(addr)
 }
 
+/// Returns a eth_sign-compatible hash of data to sign.
+/// The data is prefixed with special message to prevent
+/// malicious DApps from using the function to sign forged transactions.
+pub fn eth_data_hash(mut data: Vec<u8>) -> Result<[u8; 32], &'static str> {
+	if data.len() != 51 {
+		debug::error!("Ethereum message has an unexpected length {} !!! Expected is 51.", data.len());
+		return Err("Unexpected ethereum message length!");
+	}
+	// Hardcode the length of msg as 51, as it should be constant:15(prefix) + 32(AccountId) + 4(BlockNumber)
+	let mut eth_data = b"\x19Ethereum Signed Message:\n51".encode();
+	eth_data.append(&mut data);
+	Ok(sp_io::hashing::keccak_256(&eth_data))
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use hex::decode;
 
 	/// Returns a eth_sign-compatible hash of data to sign.
-	/// The data is prepended with special message to prevent
+	/// The data is prefixed with special message to prevent
 	/// malicious DApps from using the function to sign forged transactions.
-	pub fn eth_data_hash(mut data: Vec<u8>) -> [u8; 32] {
-		let mut message_data = format!("\x19Ethereum Signed Message:\n{}", data.len()).into_bytes();
-		message_data.append(&mut data);
-		sp_io::hashing::keccak_256(&message_data)
-	}
+	//pub fn eth_data_hash(mut data: Vec<u8>) -> [u8; 32] {
+	//	let mut message_data = format!("\x19Ethereum Signed Message:\n{}", data.len()).into_bytes();
+	//	message_data.append(&mut data);
+	//	sp_io::hashing::keccak_256(&message_data)
+	//}
 
 	#[test]
 	fn correct_recover() {
