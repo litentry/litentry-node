@@ -1,15 +1,38 @@
 
 use std::convert::Infallible;
-
+use std::env;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server};
+use std::collections::HashMap;
 
-async fn hello(_: Request<Body>) -> Result<Response<Body>, Infallible> {
-    Ok(Response::new(Body::from("Hello World!")))
+fn read_token() -> String {
+    let keys: Vec<&str> = vec![
+    "ethscan",
+    "infura",
+    "blockchain",
+    ];
+
+    let mut token_map = HashMap::<&str, String>::new();
+    for key in keys.into_iter() {
+        let token = match env::var(key) {
+            Ok(token) => token,
+            Err(_) => "".to_string(),
+        };
+        token_map.insert(key, token);
+    }
+
+    serde_json::to_string(&token_map).unwrap()
+}
+
+async fn hello(req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    println!("{:?}, {:?}", req.uri().path(), req.method());
+    let data = read_token();
+    Ok(Response::new(Body::from(data)))
 }
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    read_token();
     pretty_env_logger::init();
 
     // For every connection, we must make a `Service` to handle all

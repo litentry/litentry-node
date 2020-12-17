@@ -17,7 +17,7 @@ use sp_runtime::{
 		ValidTransaction, InvalidTransaction, TransactionValidity, TransactionSource, TransactionLongevity,
 	},
 };
-use sp_runtime::offchain::http;
+use sp_runtime::offchain::{http, storage::StorageValueRef,};
 use codec::Encode;
 
 #[cfg(test)]
@@ -624,6 +624,74 @@ impl<T: Trait> Module<T> {
 		}
 		return vec_result;
 	}
+
+	// get the token from local server
+	// fn get_token() -> Vec<Vec<u8>> {
+
+	// }
+
+	fn get_token<'a>() -> Result<Vec<u8>, &'static str> {
+		let remote_url_str = core::str::from_utf8(&"http://127.0.0.1:3000".as_bytes().to_vec())
+			.map_err(|_| "Error in converting remote_url to string")?;
+	
+		debug::info!("Offchain Worker get request url is {}.", remote_url_str);
+
+		let pending = http::Request::get(remote_url_str).send()
+			.map_err(|_| "Error in sending http GET request")?;
+
+		let response = pending.wait()
+			.map_err(|_| "Error in waiting http response back")?;
+
+		if response.code != 200 {
+			debug::warn!("Unexpected status code: {}", response.code);
+			return Err("Non-200 status code returned from http request");
+		}
+
+		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
+
+		let balance =
+			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
+
+		
+
+		Ok(balance.as_bytes().to_vec())
+	}
+
+	// Parse the balance from infura response
+	fn parse_tokens(price_str: &str) {
+		let val = lite_json::parse_json(price_str);
+		val.ok().and_then(|v| { 
+			println!("{:?} ", "world ");
+			match v {
+				
+				JsonValue::Object(obj) => {
+					for (k, v) in obj.into_iter() {
+						match v {
+							JsonValue::String(value) => {
+								let mut ethscan_chars = "ethscan".chars();
+								let mut infura_chars = "infura".chars();
+								let mut blockchain_chars = "blockcain".chars();
+
+								// k.iter().map(|c| 8_u8).collect()
+
+								if k.iter().all(|k| Some(*k) == ethscan_chars.next()) {
+
+									let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
+									let store: Vec<u8> = value.into_iter().map(|c| c.into()).collect();
+									s_info.set(&store);
+								};
+							},
+							_ => (),
+				
+						};
+					};
+					None
+				},
+				_ => None,
+			}
+		});
+	}
+
 }
 
 #[allow(deprecated)]
