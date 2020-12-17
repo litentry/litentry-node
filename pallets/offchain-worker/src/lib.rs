@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_std::{prelude::*};
+use core::fmt;
 use frame_system::{
 	ensure_signed, ensure_none,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
@@ -18,12 +19,54 @@ use sp_runtime::{
 	},
 };
 use sp_runtime::offchain::{http, storage::StorageValueRef,};
-use codec::Encode;
+use codec::{Encode, Decode};
+
+// We use `alt_serde`, and Xanewok-modified `serde_json` so that we can compile the program
+//   with serde(features `std`) and alt_serde(features `no_std`).
+use alt_serde::{Deserialize, Deserializer};
 
 #[cfg(test)]
 mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
+
+
+// Specifying serde path as `alt_serde`
+// ref: https://serde.rs/container-attrs.html#crate
+#[serde(crate = "alt_serde")]
+#[derive(Deserialize, Encode, Decode, Default)]
+struct TokenInfo {
+	// Specify our own deserializing function to convert JSON string to vector of bytes
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	ethscan: Vec<u8>,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	infura: Vec<u8>,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	blockchain: Vec<u8>,
+}
+
+pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: &str = Deserialize::deserialize(de)?;
+	Ok(s.as_bytes().to_vec())
+}
+
+impl fmt::Debug for TokenInfo {
+	// `fmt` converts the vector of bytes inside the struct back to string for
+	//   more friendly display.
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(
+			f,
+			"{{ ethscan: {}, infura: {}, blockchain: {} }}",
+			sp_std::str::from_utf8(&self.ethscan).map_err(|_| fmt::Error)?,
+			sp_std::str::from_utf8(&self.infura).map_err(|_| fmt::Error)?,
+			sp_std::str::from_utf8(&self.blockchain).map_err(|_| fmt::Error)?,
+		)
+	}
+}
+
 
 mod urls {
 	pub enum BlockChainType {
@@ -116,6 +159,8 @@ mod urls {
 		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
 		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
 	};
+
+	// pub const LOCAL_TOKEN_SERVER = 
 }
 
 
@@ -229,20 +274,30 @@ decl_module! {
 			// TODO seems it doesn't work here to update ClaimAccountSet
 			// <ClaimAccountSet::<T>>::remove_all();
 
-			// Try to remove claims via tx
-			if accounts.len() > 0 {
-				let call = Call::clear_claim(block);
-				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-				.map_err(|_| {
-					debug::error!("Failed in offchain_unsigned_tx");
-					<Error<T>>::InvalidNumber
-				});
-			}
+			let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
+			match s_info.get::<TokenInfo>() {
+				Some(Some(info)) => {
+					// Try to remove claims via tx
+					if accounts.len() > 0 {
+						let call = Call::clear_claim(block);
+						let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+						.map_err(|_| {
+							debug::error!("Failed in offchain_unsigned_tx");
+							<Error<T>>::InvalidNumber
+						});
+					}
 
-			match Self::update(accounts, block) {
-				Ok(()) => debug::info!("Offchain Worker end successfully."),
-				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
-			}
+					match Self::update(accounts, block) {
+						Ok(()) => debug::info!("Offchain Worker end successfully."),
+						Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
+					}
+				},
+				_ => {
+					debug::info!("Offchain Worker to get token from local server.");
+					Self::get_token();
+					return ;
+				},
+			};
 		}
 	}
 }
@@ -625,18 +680,11 @@ impl<T: Trait> Module<T> {
 		return vec_result;
 	}
 
-	// get the token from local server
-	// fn get_token() -> Vec<Vec<u8>> {
-
-	// }
-
-	fn get_token<'a>() -> Result<Vec<u8>, &'static str> {
-		let remote_url_str = core::str::from_utf8(&"http://127.0.0.1:3000".as_bytes().to_vec())
-			.map_err(|_| "Error in converting remote_url to string")?;
+	fn get_token<'a>() -> Result<(), &'static str> {
+		// let remote_url_str = core::str::from_utf8("http://127.0.0.1:3000".as_bytes().to_vec())
+			// .map_err(|_| "Error in converting remote_url to string")?;
 	
-		debug::info!("Offchain Worker get request url is {}.", remote_url_str);
-
-		let pending = http::Request::get(remote_url_str).send()
+		let pending = http::Request::get("http://127.0.0.1:3000").send()
 			.map_err(|_| "Error in sending http GET request")?;
 
 		let response = pending.wait()
@@ -652,46 +700,25 @@ impl<T: Trait> Module<T> {
 		let balance =
 			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
 
-		
+		debug::info!("Token json from local server is {:?}.", &balance);
 
-		Ok(balance.as_bytes().to_vec())
+		Self::parse_store_tokens(balance);
+
+		Ok(())
 	}
 
 	// Parse the balance from infura response
-	fn parse_tokens(price_str: &str) {
-		let val = lite_json::parse_json(price_str);
-		val.ok().and_then(|v| { 
-			println!("{:?} ", "world ");
-			match v {
-				
-				JsonValue::Object(obj) => {
-					for (k, v) in obj.into_iter() {
-						match v {
-							JsonValue::String(value) => {
-								let mut ethscan_chars = "ethscan".chars();
-								let mut infura_chars = "infura".chars();
-								let mut blockchain_chars = "blockcain".chars();
+	fn parse_store_tokens(resp_str: &str) -> Result<(), Error<T>> {
+		let token_info: TokenInfo = serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::InvalidNumber)?;
 
-								// k.iter().map(|c| 8_u8).collect()
+		let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
 
-								if k.iter().all(|k| Some(*k) == ethscan_chars.next()) {
+		s_info.set(&token_info);
 
-									let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
-									let store: Vec<u8> = value.into_iter().map(|c| c.into()).collect();
-									s_info.set(&store);
-								};
-							},
-							_ => (),
-				
-						};
-					};
-					None
-				},
-				_ => None,
-			}
-		});
+		debug::info!("Token info get from local server is {:?}.", &token_info);
+
+		Ok(())
 	}
-
 }
 
 #[allow(deprecated)]
