@@ -15,8 +15,9 @@ pub fn addr_from_sig(msg: [u8; 32], sig: [u8; 65]) -> Result<[u8; 20], sp_io::Ec
 /// The data is prefixed with special message to prevent
 /// malicious DApps from using the function to sign forged transactions.
 pub fn eth_data_hash(mut data: Vec<u8>) -> Result<[u8; 32], &'static str> {
-	if data.len() != 51 {
-		debug::error!("Ethereum message has an unexpected length {} !!! Expected is 51.", data.len());
+	const MSG_LEN: usize = 51;
+	if data.len() != MSG_LEN {
+		debug::error!("Ethereum message has an unexpected length {} !!! Expected is {}.", data.len(), MSG_LEN);
 		return Err("Unexpected ethereum message length!");
 	}
 	// Hardcode the length of msg as 51, as it should be constant:15(prefix) + 32(AccountId) + 4(BlockNumber)
@@ -30,20 +31,18 @@ mod tests {
 	use super::*;
 	use hex::decode;
 
-	/// Returns a eth_sign-compatible hash of data to sign.
-	/// The data is prefixed with special message to prevent
-	/// malicious DApps from using the function to sign forged transactions.
-	//pub fn eth_data_hash(mut data: Vec<u8>) -> [u8; 32] {
-	//	let mut message_data = format!("\x19Ethereum Signed Message:\n{}", data.len()).into_bytes();
-	//	message_data.append(&mut data);
-	//	sp_io::hashing::keccak_256(&message_data)
-	//}
+	// A test helper function to add ethereum prefix before message hashing
+	pub fn eth_data_hash_test_helper(mut data: Vec<u8>) -> [u8; 32] {
+		let mut message_data = format!("\x19Ethereum Signed Message:\n{}", data.len()).into_bytes();
+		message_data.append(&mut data);
+		sp_io::hashing::keccak_256(&message_data)
+	}
 
 	#[test]
 	fn correct_recover() {
 
 		let msg = decode("61626364656667").unwrap();
-		let msg = eth_data_hash(msg);
+		let msg = eth_data_hash_test_helper(msg);
 
 		let sig_bytes = decode("5900a81f236e27be7ee2c796e0de9b383aadcd8b3c53fd881dd378f4c2bc1a54406be632a464c197131c668432f32a966a19354920686a8f8fdd9c9ab0a0dd011b").unwrap();
 		let mut sig = [0u8; 65];
@@ -61,7 +60,7 @@ mod tests {
 	fn wrong_msg() {
 
 		let msg = decode("626364656667").unwrap();
-		let msg = eth_data_hash(msg);
+		let msg = eth_data_hash_test_helper(msg);
 
 		let sig_bytes = decode("5900a81f236e27be7ee2c796e0de9b383aadcd8b3c53fd881dd378f4c2bc1a54406be632a464c197131c668432f32a966a19354920686a8f8fdd9c9ab0a0dd011b").unwrap();
 		let mut sig = [0u8; 65];
@@ -79,7 +78,7 @@ mod tests {
 	fn sig_from_another_addr() {
 
 		let msg = decode("61626364656667").unwrap();
-		let msg = eth_data_hash(msg);
+		let msg = eth_data_hash_test_helper(msg);
 
 		let sig_bytes = decode("a4543cd17d07a9b5207bbf4ccf3c9d47e0a292a6ce461427ebc50de24387887b14584651c3bc11376ba9fe662df325ced20f5c30dd782b6bee15cb474c206a341b").unwrap();
 		let mut sig = [0u8; 65];
@@ -91,5 +90,18 @@ mod tests {
 
 		let addr = addr_from_sig(msg, sig).ok().unwrap();
 		assert_ne!(addr, addr_expected);
+	}
+
+	#[test]
+	fn msg_with_unexpected_length() {
+		let msg = b"Link Litentry: 0123456789abcdef0123456789abcdef999".encode();
+		assert_eq!(Err("Unexpected ethereum message length!"), eth_data_hash(msg));
+	}
+
+	#[test]
+	fn msg_with_expected_length() {
+		let msg = b"Link Litentry: 0123456789abcdef0123456789abcdef9999".encode();
+		let res = eth_data_hash(msg.clone()).ok().unwrap();
+		assert_eq!(eth_data_hash_test_helper(msg), res);
 	}
 }

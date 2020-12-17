@@ -81,7 +81,7 @@ decl_module! {
 			bytes.append(&mut account_vec);
 			bytes.append(&mut expiring_block_number_vec);
 
-			let hash = util::eth_data_hash(bytes).map_err(|_| Error::<T>::UnexpectedEthMsgLength)?;
+			let hash = util_eth::eth_data_hash(bytes).map_err(|_| Error::<T>::UnexpectedEthMsgLength)?;
 
 			let mut msg = [0u8; 32];
 			let mut sig = [0u8; 65];
