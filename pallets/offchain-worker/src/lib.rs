@@ -1,6 +1,61 @@
+//!pub const ETHERSCAN_REQUEST: HttpGet = HttpGet {
+//!		// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
+//!		// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
+
+//!		blockchain: BlockChainType::ETH,
+//!		prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
+//!		delimiter: ",0x",
+//!		postfix: "&tag=latest&apikey=", 
+//!		api_token: "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB",
+//!		//sample_acc: "742d35Cc6634C0532925a3b844Bc454e4438f44e",
+//!		//sample_acc_add: "",
+//!	};
+
+//!	pub const BLOCKCHAIN_INFO_REQUEST: HttpGet = HttpGet {
+//!		// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
+//!		// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER 
+//!		//                         + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
+
+//!		blockchain: BlockChainType::BTC,
+//!		prefix: "https://blockchain.info/balance?active=",
+//!		// The "%7C" is encoded of | delimiter in URL
+//!		delimiter: "%7C",
+//!		postfix: "",
+//!		api_token: "",
+//!		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+//!		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
+//!	};
+
+//!	pub const INFURA_REQUEST: HttpPost = HttpPost {
+//!		// https://mainnet.infura.io/v3/aa0a6af5f94549928307febe80612a2a
+//!		// Head: "Content-Type: application/json"
+//!		// Body: 
+//!		//			[
+//!		//				{
+//!		//					"jsonrpc":"2.0",
+//!		//					"method":"eth_getBalance",
+//!		//					"id":1,
+//!		//					"params":["0x0x4d88dc5D528A33E4b8bE579e9476715F60060582","latest"]
+//!		//				},
+//!		//				...
+//!		//			]
+
+//!		blockchain: BlockChainType::ETH,
+//!		url_main: "https://ropsten.infura.io/v3/",
+//!		api_token: "aa0a6af5f94549928307febe80612a2a",
+
+//!		// Batch multiple json rpc calls within one request, therefore wrapped with [] and separated by ,
+//!		prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+//!		delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+//!		postfix: r#"","latest"]}]"#,
+//!		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+//!		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
+//!	};
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_std::{prelude::*};
+use core::fmt;
 use frame_system::{
 	ensure_signed, ensure_none,
 	offchain::{CreateSignedTransaction, SubmitTransaction},
@@ -17,13 +72,53 @@ use sp_runtime::{
 		ValidTransaction, InvalidTransaction, TransactionValidity, TransactionSource, TransactionLongevity,
 	},
 };
-use sp_runtime::offchain::http;
-use codec::Encode;
+use sp_runtime::offchain::{http, storage::StorageValueRef,};
+use codec::{Encode, Decode};
+
+// We use `alt_serde`, and Xanewok-modified `serde_json` so that we can compile the program
+//   with serde(features `std`) and alt_serde(features `no_std`).
+use alt_serde::{Deserialize, Deserializer};
 
 #[cfg(test)]
 mod tests;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
+
+// Specifying serde path as `alt_serde`
+// ref: https://serde.rs/container-attrs.html#crate
+#[serde(crate = "alt_serde")]
+#[derive(Deserialize, Encode, Decode, Default)]
+struct TokenInfo {
+	// Specify our own deserializing function to convert JSON string to vector of bytes
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	ethscan: Vec<u8>,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	infura: Vec<u8>,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	blockchain: Vec<u8>,
+}
+
+pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let s: &str = Deserialize::deserialize(de)?;
+	Ok(s.as_bytes().to_vec())
+}
+
+impl fmt::Debug for TokenInfo {
+	// `fmt` converts the vector of bytes inside the struct back to string for
+	//   more friendly display.
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(
+			f,
+			"{{ ethscan: {}, infura: {}, blockchain: {} }}",
+			sp_std::str::from_utf8(&self.ethscan).map_err(|_| fmt::Error)?,
+			sp_std::str::from_utf8(&self.infura).map_err(|_| fmt::Error)?,
+			sp_std::str::from_utf8(&self.blockchain).map_err(|_| fmt::Error)?,
+		)
+	}
+}
 
 mod urls {
 	pub enum BlockChainType {
@@ -32,92 +127,30 @@ mod urls {
 	}
 
 	pub struct HttpGet<'a> {
-
 		pub blockchain: BlockChainType,
-
 		// URL affix
 		pub prefix: &'a str,
 		pub delimiter: &'a str,
 		pub postfix: &'a str,
 		pub api_token: &'a str,
-
 	}
 
 	pub struct HttpPost<'a> {
-
 		pub blockchain: BlockChainType,
-
 		// URL affix
 		pub url_main: &'a str,
 		pub api_token: &'a str,
-
 		// Body affix
 		pub prefix: &'a str,
 		pub delimiter: &'a str,
 		pub postfix: &'a str,
 	}
 
-
 	pub enum HttpRequest<'a> {
 		GET(HttpGet<'a>),
 		POST(HttpPost<'a>),
 	}
-
-	pub const ETHERSCAN_REQUEST: HttpGet = HttpGet {
-		// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
-		// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
-
-		blockchain: BlockChainType::ETH,
-		prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
-		delimiter: ",0x",
-		postfix: "&tag=latest&apikey=", 
-		api_token: "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB",
-		//sample_acc: "742d35Cc6634C0532925a3b844Bc454e4438f44e",
-		//sample_acc_add: "",
-	};
-
-	pub const BLOCKCHAIN_INFO_REQUEST: HttpGet = HttpGet {
-		// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
-		// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER 
-		//                         + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
-
-		blockchain: BlockChainType::BTC,
-		prefix: "https://blockchain.info/balance?active=",
-		// The "%7C" is encoded of | delimiter in URL
-		delimiter: "%7C",
-		postfix: "",
-		api_token: "",
-		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
-	};
-
-	pub const INFURA_REQUEST: HttpPost = HttpPost {
-		// https://mainnet.infura.io/v3/aa0a6af5f94549928307febe80612a2a
-		// Head: "Content-Type: application/json"
-		// Body: 
-		//			[
-		//				{
-		//					"jsonrpc":"2.0",
-		//					"method":"eth_getBalance",
-		//					"id":1,
-		//					"params":["0x0x4d88dc5D528A33E4b8bE579e9476715F60060582","latest"]
-		//				},
-		//				...
-		//			]
-
-		blockchain: BlockChainType::ETH,
-		url_main: "https://ropsten.infura.io/v3/",
-		api_token: "aa0a6af5f94549928307febe80612a2a",
-
-		// Batch multiple json rpc calls within one request, therefore wrapped with [] and separated by ,
-		prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-		delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-		postfix: r#"","latest"]}]"#,
-		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
-	};
 }
-
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -229,33 +262,97 @@ decl_module! {
 			// TODO seems it doesn't work here to update ClaimAccountSet
 			// <ClaimAccountSet::<T>>::remove_all();
 
-			// Try to remove claims via tx
-			if accounts.len() > 0 {
-				let call = Call::clear_claim(block);
-				let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-				.map_err(|_| {
-					debug::error!("Failed in offchain_unsigned_tx");
-					<Error<T>>::InvalidNumber
-				});
-			}
+			let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
+			match s_info.get::<TokenInfo>() {
+				Some(Some(info)) => {
+					// Try to remove claims via tx
+					if accounts.len() > 0 {
+						let call = Call::clear_claim(block);
+						let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+						.map_err(|_| {
+							debug::error!("Failed in offchain_unsigned_tx");
+							<Error<T>>::InvalidNumber
+						});
+					}
 
-			match Self::update(accounts, block) {
-				Ok(()) => debug::info!("Offchain Worker end successfully."),
-				Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
-			}
+					match Self::update(accounts, block, &info) {
+						Ok(()) => debug::info!("Offchain Worker end successfully."),
+						Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
+					}
+				},
+				_ => {
+					debug::info!("Offchain Worker to get token from local server.");
+					let _ = Self::get_token();
+					return ;
+				},
+			};
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
-	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber) ->  Result<(), Error<T>> {
+	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber, info: &TokenInfo) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			let eth_balance = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::GET(urls::ETHERSCAN_REQUEST), &Self::parse_etherscan_balances);
-			let btc_balance = Self::fetch_balances(Vec::new(), urls::HttpRequest::GET(urls::BLOCKCHAIN_INFO_REQUEST), &Self::parse_blockchain_info_balances);
+			
+			let eth_balance = {
+				if info.ethscan.len() == 0 {
+					Err(Error::<T>::InvalidNumber)
+				} else {
+					match core::str::from_utf8(&info.ethscan) {
+						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
+							urls::HttpRequest::GET(urls::HttpGet {
+								blockchain: urls::BlockChainType::ETH,
+								prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
+								delimiter: ",0x",
+								postfix: "&tag=latest&apikey=",
+								api_token: token,
+								}), 
+							&Self::parse_etherscan_balances),
+						Err(_) => Err(Error::<T>::InvalidNumber),
+					}
+				}
+			};
+			
+			let btc_balance = {
+				if info.blockchain.len() == 0 {
+					Err(Error::<T>::InvalidNumber)
+				} else {
+					match core::str::from_utf8(&info.blockchain) {
+						Ok(token) => Self::fetch_balances(Vec::new(), 
+							urls::HttpRequest::GET(urls::HttpGet {
+								blockchain: urls::BlockChainType::BTC,
+								prefix: "https://blockchain.info/balance?active=",
+								delimiter: "%7C",
+								postfix: "",
+								api_token: token,
+								}), 
+							&Self::parse_blockchain_info_balances),
+						Err(_) => Err(Error::<T>::InvalidNumber),
+					}
+				}
+			};
 
 			// TODO Dispatch different nodes to fetch etc balance from different sources 
-			let etc_balance_infura = Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), urls::HttpRequest::POST(urls::INFURA_REQUEST), &Self::parse_infura_balances);
+			let etc_balance_infura = {
+				if info.infura.len() == 0 {
+					Err(Error::<T>::InvalidNumber)
+				} else {
+					match core::str::from_utf8(&info.infura) {
+						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
+					urls::HttpRequest::POST(urls::HttpPost {
+						url_main: "https://ropsten.infura.io/v3/",
+						blockchain: urls::BlockChainType::ETH,
+						prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+						delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+						postfix: r#"","latest"]}]"#,
+						api_token: token,
+						}), 
+					&Self::parse_infura_balances),
+					Err(_) => Err(Error::<T>::InvalidNumber),
+					}
+				}
+			};
 
 			match (btc_balance, eth_balance) {
 				(Ok(btc), Ok(eth)) => {
@@ -623,6 +720,44 @@ impl<T: Trait> Module<T> {
 			vec_result.push(Self::u8_to_str_byte(a));
 		}
 		return vec_result;
+	}
+
+	fn get_token<'a>() -> Result<(), &'static str> {
+	
+		let pending = http::Request::get("http://127.0.0.1:3000").send()
+			.map_err(|_| "Error in sending http GET request")?;
+
+		let response = pending.wait()
+			.map_err(|_| "Error in waiting http response back")?;
+
+		if response.code != 200 {
+			debug::warn!("Unexpected status code: {}", response.code);
+			return Err("Non-200 status code returned from http request");
+		}
+
+		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
+
+		let balance =
+			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
+
+		debug::info!("Token json from local server is {:?}.", &balance);
+
+		let _ = Self::parse_store_tokens(balance);
+
+		Ok(())
+	}
+
+	// Parse the balance from infura response
+	fn parse_store_tokens(resp_str: &str) -> Result<(), Error<T>> {
+		let token_info: TokenInfo = serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::InvalidNumber)?;
+
+		let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
+
+		s_info.set(&token_info);
+
+		debug::info!("Token info get from local server is {:?}.", &token_info);
+
+		Ok(())
 	}
 }
 
