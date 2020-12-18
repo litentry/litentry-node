@@ -101,9 +101,45 @@ fn test_invalid_block_number() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let result = AccountLinker::link_eth(Origin::signed(1), account, 0, block_number, r, s, v);
+		let result = AccountLinker::link_eth(
+			Origin::signed(1),
+			account,
+			0,
+			key_pair.address().to_fixed_bytes(),
+			block_number,
+			r,
+			s,
+			v);
 		assert_eq!(result.is_err(), true);
 		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::LinkRequestExpired)));
+	});
+}
+
+#[test]
+fn test_unexpected_address() {
+	new_test_ext().execute_with(|| {
+
+		let account: u64 = 5;
+		let block_number: u64 = 99999;
+
+		let mut gen = Random{};
+		let key_pair = gen.generate().unwrap();
+
+		let msg = generate_msg(account, block_number);
+		let sig = generate_sig(&key_pair, &msg);
+		let (r, s, v) = generate_rsv(&sig);
+
+		let result = AccountLinker::link_eth(
+			Origin::signed(1),
+			account,
+			0,
+			gen.generate().unwrap().address().to_fixed_bytes(),
+			block_number,
+			r,
+			s,
+			v);
+		assert_eq!(result.is_err(), true);
+		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::UnexpectedAddress)));
 	});
 }
 
@@ -129,6 +165,7 @@ fn test_insert_eth_address() {
 			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										i as u32,
+										key_pair.address().to_fixed_bytes(),
 										block_number + i as u64,
 										r,
 										s,
@@ -157,6 +194,7 @@ fn test_update_eth_address() {
 			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										i as u32,
+										key_pair.address().to_fixed_bytes(),
 										block_number + i as u64,
 										r,
 										s,
@@ -176,6 +214,7 @@ fn test_update_eth_address() {
 		let _ = AccountLinker::link_eth(Origin::signed(1),
 									account,
 									index,
+									key_pair.address().to_fixed_bytes(),
 									block_number,
 									r,
 									s,
@@ -207,6 +246,7 @@ fn test_eth_address_pool_overflow() {
 			let _ = AccountLinker::link_eth(Origin::signed(1),
 										account,
 										index as u32,
+										key_pair.address().to_fixed_bytes(),
 										block_number,
 										r,
 										s,
