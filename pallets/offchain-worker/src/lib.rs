@@ -722,7 +722,8 @@ impl<T: Trait> Module<T> {
 		return vec_result;
 	}
 
-	fn get_token<'a>() -> Result<(), &'static str> {	
+	fn get_token<'a>() -> Result<(), &'static str> {
+	
 		let pending = http::Request::get("http://127.0.0.1:3000").send()
 			.map_err(|_| "Error in sending http GET request")?;
 
