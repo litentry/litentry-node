@@ -22,7 +22,7 @@ test-account-linker:
 	cargo test --package $(call pkgid, pallet-account-linker)
 test-offchain-worker:
 	cargo test --package $(call pkgid, pallet-offchain-worker)
-litentry-token-server:
+test-litentry-token-server:
 	cargo test --package $(call pkgid, litentry-token-server)
 
 test:

@@ -297,7 +297,7 @@ decl_module! {
 			// TODO seems it doesn't work here to update ClaimAccountSet
 			// <ClaimAccountSet::<T>>::remove_all();
 
-			let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
+			let s_info = StorageValueRef::persistent(b"offchain-worker::token");
 			match s_info.get::<TokenInfo>() {
 				Some(Some(info)) => {
 					// Try to remove claims via tx
@@ -635,23 +635,6 @@ impl<T: Trait> Module<T> {
 	}
 
 	// u128 number string to u128
-	// pub fn vec_u8_to_u128(vec: &Vec<u8>) -> Result<u128, &'static str> {
-	// 	let mut result = 0_u128;
-	// 	for item in vec {
-	// 		if *item < 48 || *item > 57 {
-	// 			return Err("Not a number")
-	// 		} else {
-	// 			let item_as_u128 = *item as u128 - 48;
-	// 			result = result * 10 + item_as_u128;
-	// 			if result < item_as_u128 {
-	// 				return Err("Number overflow")
-	// 			}
-	// 		}
-	// 	}
-	// 	return Ok(result)
-	// }
-
-	// u128 number string to u128
 	pub fn chars_to_u128(vec: &Vec<char>) -> Result<u128, &'static str> {
 		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not) 
 		let base = if vec.len() >= 2 && vec[0] == '0' && vec[1] == 'x' {
@@ -737,7 +720,7 @@ impl<T: Trait> Module<T> {
 	fn parse_store_tokens(resp_str: &str) -> Result<(), Error<T>> {
 		let token_info: TokenInfo = serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::InvalidNumber)?;
 
-		let s_info = StorageValueRef::persistent(b"offchain-demo::gh-info");
+		let s_info = StorageValueRef::persistent(b"offchain-worker::token");
 
 		s_info.set(&token_info);
 
