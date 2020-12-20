@@ -65,7 +65,6 @@ use frame_support::{
 	ensure, storage::IterableStorageMap,
 };
 use sp_core::crypto::KeyTypeId;
-use lite_json::{self, json::JsonValue};
 
 use sp_runtime::{
 	transaction_validity::{
@@ -580,43 +579,24 @@ impl<T: Trait> Module<T> {
 		// {
 		//	"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":6835384571,"n_tx":2635,"total_received":6835384571},
 		//  "15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":0,"n_tx":4,"total_received":310925609}
-	  // }
-		let val = lite_json::parse_json(price_str);
+	  	// }
 		let mut balance_vec: Vec<u128> = Vec::new();
 
-		val.ok().and_then(|v| match v {
-			JsonValue::Object(obj) => {
-				for each in obj {
-					match each.1 {
-						JsonValue::Object(balance_pairs) => {
-							balance_vec.push(balance_pairs.into_iter().find(|(k, _)|{
-								let mut matching_chars = "final_balance".chars();
-								k.iter().all(|k| Some(*k) == matching_chars.next())
-							})
-							.and_then(|v| match v.1 {
-								JsonValue::Number(balance) => {
-									if balance.fraction != 0 || balance.fraction_length != 0 || balance.integer < 0 {
-										// Number received with fraction or negative, abort this request
-										None
-									} else {
-										Some( 
-											if balance.exponent == 0 {
-												balance.integer as u128 
-											} else {
-												balance.integer as u128 * 10u128.pow(balance.exponent as u32)
-											})
-									}
-								},
-								_ => None,
-							})?);
-						},
-						_ => ()
+		let value: serde_json::Value = serde_json::from_str(price_str).ok()?;
+
+		match value {
+			serde_json::Value::Object(map_data) => {
+				for (_, v) in map_data.iter() {
+					match v["final_balance"].as_u64() {
+					Some(balance) =>  balance_vec.push(balance as u128),
+					None => (),    
 					}
-				};
-				Some(balance_vec)
+				}
 			},
-			_ => None
-		})
+			_ => (),
+		};
+
+		Some(balance_vec)
 	}
 
 	// Parse the balance from infura response
