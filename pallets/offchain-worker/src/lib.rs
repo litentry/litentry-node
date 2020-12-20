@@ -98,6 +98,41 @@ struct TokenInfo {
 	blockchain: Vec<u8>,
 }
 
+#[serde(crate = "alt_serde")]
+#[derive(Deserialize, Encode, Decode, Default)]
+struct EtherScanBalance {
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	account: Vec<u8>,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	balance: Vec<u8>,
+}
+
+#[serde(crate = "alt_serde")]
+#[derive(Deserialize, Encode, Decode, Default)]
+struct EtherScanResponse {
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	status: Vec<u8>,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	message: Vec<u8>,
+	result: Vec<EtherScanBalance>,
+}
+
+#[serde(crate = "alt_serde")]
+#[derive(Deserialize, Encode, Decode, Default)]
+struct InfuraBalance {
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	jsonrpc: Vec<u8>,
+	id: u32,
+	#[serde(deserialize_with = "de_string_to_bytes")]
+	result: Vec<u8>,
+}
+
+#[serde(crate = "alt_serde")]
+#[derive(Deserialize, Encode, Decode, Default)]
+struct InfuraResponse {
+	response: Vec<InfuraBalance>,
+}
+
 pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
 where
 	D: Deserializer<'de>,
@@ -532,51 +567,12 @@ impl<T: Trait> Module<T> {
 		//     {"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"2571179226430511381996287"}
 		//   ]
 		// }
-		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<u128> = Vec::new();
-
-		val.ok().and_then(|v| { 
-				match v {
-				JsonValue::Object(obj) => {
-					obj.into_iter()
-						.find(|(k, _)|  {
-							let mut chars = "result".chars();
-							k.iter().all(|k| Some(*k) == chars.next())
-					})
-					.and_then(|v|  {
-						match v.1 {
-							JsonValue::Array(res_array) => {
-								for element in res_array {
-									match element {
-										JsonValue::Object(element_vec) => {
-											for pair in element_vec {
-												let mut balance_chars = "balance".chars();
-												if pair.0.iter().all(|k| Some(*k) == balance_chars.next()) {
-													match pair.1 {
-														JsonValue::String(balance) => {
-															match Self::chars_to_u128(balance){
-																Ok(b) => balance_vec.push(b),
-																// TODO Proper error handling here would be necessary later
-																Err(_) => return None,
-															}
-														},
-														_ => (),
-													}
-												}
-											};
-										},
-										_ => ()
-									}
-								}
-								Some(balance_vec)
-							},
-							_ => None,
-						}
-					})
-				},
-				_ => None
-			}
-		})
+		let token_info: EtherScanResponse = serde_json::from_str(price_str).ok()?;
+		let result: Vec<u128> = token_info.result.iter().map(|item| match Self::chars_to_u128(&item.balance.iter().map(|i| *i as char).collect()) {
+			Ok(balance) => balance,
+			Err(_) => 0_u128,
+		}).collect();
+		Some(result)
 	}
 
 	// Parse balances from blockchain info response
@@ -629,44 +625,34 @@ impl<T: Trait> Module<T> {
 		//  {"jsonrpc":"2.0","id":1,"result":"0x4563918244f40000"},
 		//  {"jsonrpc":"2.0","id":1,"result":"0xff"}
 		//]
-		let val = lite_json::parse_json(price_str);
-		let mut balance_vec: Vec<u128> = Vec::new();
 
-		val.ok().and_then(|v| { 
-				match v {
-					JsonValue::Array(res_array) => {
-						for each in res_array {
-							match each {
-								JsonValue::Object(obj) => {
-									balance_vec.push({
-										obj.into_iter().find(|(k, _)|{
-											let mut chars = "result".chars(); 
-											k.iter().all(|k| Some(*k) == chars.next())
-										}).and_then(|v|{
-											match v.1 {
-												JsonValue::String(balance) => {
-													match Self::chars_to_u128(balance){
-														Ok(b) => Some(b),
-														Err(_) => None,
-													}
-												},
-												_ => None,
-											}
-										})?
-									});
-								},
-								_ => (),
-							}
-						};
-						Some(balance_vec)
-					},
-					_ => None,
-				}
-			})
+		let token_info: Vec<InfuraBalance> = serde_json::from_str(price_str).ok()?;
+		let result: Vec<u128> = token_info.iter().map(|item| match Self::chars_to_u128(&item.result.iter().map(|i| *i as char).collect()) {
+			Ok(balance) => balance,
+			Err(_) => 0_u128,
+		}).collect();
+		Some(result)
 	}
 
 	// u128 number string to u128
-	pub fn chars_to_u128(vec: Vec<char>) -> Result<u128, &'static str> {
+	// pub fn vec_u8_to_u128(vec: &Vec<u8>) -> Result<u128, &'static str> {
+	// 	let mut result = 0_u128;
+	// 	for item in vec {
+	// 		if *item < 48 || *item > 57 {
+	// 			return Err("Not a number")
+	// 		} else {
+	// 			let item_as_u128 = *item as u128 - 48;
+	// 			result = result * 10 + item_as_u128;
+	// 			if result < item_as_u128 {
+	// 				return Err("Number overflow")
+	// 			}
+	// 		}
+	// 	}
+	// 	return Ok(result)
+	// }
+
+	// u128 number string to u128
+	pub fn chars_to_u128(vec: &Vec<char>) -> Result<u128, &'static str> {
 		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not) 
 		let base = if vec.len() >= 2 && vec[0] == '0' && vec[1] == 'x' {
 			// This is a hexadecimal number

@@ -157,17 +157,17 @@ impl ExternalityBuilder {
 #[test]
 fn test_chars_to_u128() {
 	let correct_balance = vec!['5', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
-	assert_eq!(Ok(500000000000000000_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+	assert_eq!(Ok(500000000000000000_u128), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
 
 	let correct_balance = vec!['a', '2'];
-	assert_eq!(Err("Wrong u128 balance data format"), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+	assert_eq!(Err("Wrong u128 balance data format"), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
 
 	let correct_balance = vec!['0', 'x', 'f', 'e'];
-	assert_eq!(Ok(254_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+	assert_eq!(Ok(254_u128), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
 
 	// Corner case check
 	let correct_balance = vec!['0', 'x'];
-	assert_eq!(Ok(0_u128), <Module<TestRuntime>>::chars_to_u128(correct_balance));
+	assert_eq!(Ok(0_u128), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
 }
 
 #[test]
@@ -200,6 +200,25 @@ fn test_parse_etherscan_balances() {
 		]
 	}"#;
 	assert_eq!(Some(vec![12, 21]), <Module<TestRuntime>>::parse_etherscan_balances(double_balances));
+}
+
+
+#[test]
+fn test_parse_etherscan_balances_2() {
+	let double_balances = r#"
+	{
+	"status": "1",
+	"message": "OK",
+	"result":
+		[
+			{"account":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","balance":"12"},
+			{"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"21"}
+		]
+	}"#;
+
+	let token_info: EtherScanResponse = serde_json::from_str(&double_balances).unwrap();
+	assert_eq!(token_info.status, "1".as_bytes().to_vec());
+	assert_eq!(token_info.result[0].balance, "12".as_bytes().to_vec());
 }
 
 #[test]
@@ -238,6 +257,20 @@ fn test_parse_infura_balances() {
 	"#;
 
 	assert_eq!(Some(vec![5000000000000000000, 255]), <Module<TestRuntime>>::parse_infura_balances(double_balances));
+}
+
+
+#[test]
+fn test_parse_infura_balances_2() {
+	let double_balances = r#"
+	[
+		{"jsonrpc":"2.0","id":1,"result":"0x4563918244f40000"},
+		{"jsonrpc":"2.0","id":1,"result":"0xff"}
+	]
+	"#;
+	let token_info: Vec<InfuraBalance> = serde_json::from_str(double_balances).unwrap();
+	assert_eq!(token_info[0].id, 1);
+
 }
 
 // #[test]
