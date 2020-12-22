@@ -12,6 +12,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod utils;
 mod util_eth;
 mod util_btc;
 
