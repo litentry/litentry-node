@@ -20,7 +20,7 @@ pub fn eth_data_hash(mut data: Vec<u8>) -> Result<[u8; 32], &'static str> {
 		debug::error!("Ethereum message has an unexpected length {} !!! Expected is {}.", data.len(), MSG_LEN);
 		return Err("Unexpected ethereum message length!");
 	}
-	let mut length_bytes = usize_to_u8_array(data.len()).ok_or_else(|| "Unexpected ethereum message length!")?;
+	let mut length_bytes = usize_to_u8_array(data.len())?;
 	let mut eth_data = b"\x19Ethereum Signed Message:\n".encode();
 	eth_data.append(&mut length_bytes);
 	eth_data.append(&mut data);
@@ -32,9 +32,9 @@ pub fn eth_data_hash(mut data: Vec<u8>) -> Result<[u8; 32], &'static str> {
 /// and then this string is converted to a byte array with UTF8 encoding.
 /// To avoid unnecessary complexity, the current function supports up to
 /// 2 digits unsigned decimal (range 0 - 99)
-pub fn usize_to_u8_array(length: usize) -> Option<Vec<u8>> {
+fn usize_to_u8_array(length: usize) -> Result<Vec<u8>, &'static str> {
 	if length >= 100 {
-		None
+		Err("Unexpected ethereum message length!")
 	} else {
 		let digits = b"0123456789".encode();
 		let tens = length / 10;
@@ -45,7 +45,7 @@ pub fn usize_to_u8_array(length: usize) -> Option<Vec<u8>> {
 			vec_res.push(digits[tens]);
 		}
 		vec_res.push(digits[ones]);
-		Some(vec_res)
+		Ok(vec_res)
 	}
 }
 
@@ -132,7 +132,7 @@ mod tests {
 	#[test]
 	fn usize_to_u8_array_input_too_large() {
 		let len: usize = 105;
-		assert_eq!(None, usize_to_u8_array(len))
+		assert_eq!(Err("Unexpected ethereum message length!"), usize_to_u8_array(len))
 	}
 
 	// Test inputs with one and two digits respectively
@@ -142,12 +142,12 @@ mod tests {
 	#[test]
 	fn usize_to_u8_array_input_one_digit() {
 		let len: usize = 4;
-		assert_eq!(Some(vec![52]), usize_to_u8_array(len))
+		assert_eq!(Ok(vec![52]), usize_to_u8_array(len))
 	}
 
 	#[test]
 	fn usize_to_u8_array_input_two_digits() {
 		let len: usize = 40;
-		assert_eq!(Some(vec![52,48]), usize_to_u8_array(len))
+		assert_eq!(Ok(vec![52, 48]), usize_to_u8_array(len))
 	}
 }
