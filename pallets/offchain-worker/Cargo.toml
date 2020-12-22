@@ -39,7 +39,6 @@ std = [
     "frame-support/std",
     "frame-system/std",
     "serde",
-    "lite-json/std",
     "sp-core/std",
     "sp-io/std",
     "sp-runtime/std",
