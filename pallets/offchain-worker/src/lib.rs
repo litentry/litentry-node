@@ -81,6 +81,8 @@ use alt_serde::{Deserialize, Deserializer};
 #[cfg(test)]
 mod tests;
 
+mod utils;
+
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
 // Specifying serde path as `alt_serde`
