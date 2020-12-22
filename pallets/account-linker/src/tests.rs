@@ -54,7 +54,7 @@ fn test_btc_link() {
 		// Generate pay-to-pubkey-hash address
 		let address = Address::p2pkh(&public_key, Network::Bitcoin);
 
-		let account: AccountId32 = Default::default();
+		let account: AccountId32 = AccountId32::from([255u8; 32]);
 		let block_number: u32 = 99999;
 
 		let mut bytes = b"Link Litentry: ".encode();
@@ -92,7 +92,7 @@ fn test_btc_link() {
 fn test_invalid_block_number() {
 	new_test_ext().execute_with(|| {
 
-		let account: AccountId32 = Default::default();
+		let account: AccountId32 = AccountId32::from([0u8; 32]);
 		let block_number: u32 = 0;
 
 		let mut gen = Random{};
@@ -112,7 +112,7 @@ fn test_invalid_block_number() {
 fn test_insert_eth_address() {
 	new_test_ext().execute_with(|| {
 
-		let account: AccountId32 = Default::default();
+		let account: AccountId32 = AccountId32::from([5u8; 32]);
 		let block_number: u32 = 99999;
 
 		let mut gen = Random{};
@@ -145,7 +145,7 @@ fn test_insert_eth_address() {
 fn test_update_eth_address() {
 	new_test_ext().execute_with(|| {
 
-		let account: AccountId32 = Default::default();
+		let account: AccountId32 = AccountId32::from([40u8; 32]);
 		let block_number: u32 = 99999;
 
 		let mut gen = Random{};
@@ -192,7 +192,7 @@ fn test_update_eth_address() {
 fn test_eth_address_pool_overflow() {
 	new_test_ext().execute_with(|| {
 
-		let account: AccountId32 = Default::default();
+		let account: AccountId32 = AccountId32::from([113u8; 32]);
 		let block_number: u32 = 99999;
 
 		let mut gen = Random{};

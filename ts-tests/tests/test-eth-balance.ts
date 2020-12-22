@@ -125,14 +125,11 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
 
 	// TODO Web3 could be used to replace eth-lib once ethereum prefix is implemented on account-linker side
 	const Web3 = require("web3");
-  const web3 = new Web3(
-    "wss://ropsten.infura.io/ws/v3/aa0a6af5f94549928307febe80612a2a"
-  );
-  let acc = web3.eth.accounts.privateKeyToAccount(privateKey);
+  const web3 = new Web3();
    // Convert byte array to hex string
   let hexString = "0x" + Buffer.from(encodedMsg).toString('hex');
 
-  let signedMsg = acc.sign(hexString);
+  let signedMsg = web3.eth.accounts.sign(hexString, privateKey);
 
 	// This is not needed as eth-lib already does the same job
 	//let keyPair = ec.keyFromPrivate(new Buffer(privateKey.slice(2), "hex"));
@@ -145,7 +142,7 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
   // let signature = ec.sign(hash, privKey, "hex", {canonical: true});
 
   //const transaction = api.tx.accountLinkerModule.link(alice.address, 0, 10000, vrs[1], vrs[2], vrs[0]);
-  const transaction = api.tx.accountLinkerModule.link(alice.address, 0, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
+  const transaction = api.tx.accountLinkerModule.linkEth(alice.address, 0, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
 
   const link = new Promise<{ block: string }>(async (resolve, reject) => {
 		const unsub = await transaction.signAndSend(alice, (result) => {
