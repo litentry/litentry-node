@@ -20,10 +20,33 @@ pub fn eth_data_hash(mut data: Vec<u8>) -> Result<[u8; 32], &'static str> {
 		debug::error!("Ethereum message has an unexpected length {} !!! Expected is {}.", data.len(), MSG_LEN);
 		return Err("Unexpected ethereum message length!");
 	}
-	// Hardcode the length of msg as 51, as it should be constant:15(prefix) + 32(AccountId) + 4(BlockNumber)
-	let mut eth_data = b"\x19Ethereum Signed Message:\n51".encode();
+	let mut length_bytes = usize_to_u8_array(data.len()).ok_or_else(|| "Unexpected ethereum message length!")?;
+	let mut eth_data = b"\x19Ethereum Signed Message:\n".encode();
+	eth_data.append(&mut length_bytes);
 	eth_data.append(&mut data);
 	Ok(sp_io::hashing::keccak_256(&eth_data))
+}
+
+/// Convert a usize type to a u8 array.
+/// The input is first converted as a string with decimal presentation,
+/// and then this string is converted to a byte array with UTF8 encoding.
+/// To avoid unnecessary complexity, the current function supports up to
+/// 2 digits unsigned decimal (range 0 - 99)
+pub fn usize_to_u8_array(length: usize) -> Option<Vec<u8>> {
+	if length >= 100 {
+		None
+	} else {
+		let digits = b"0123456789".encode();
+		let tens = length / 10;
+		let ones = length % 10;
+
+		let mut  vec_res: Vec<u8> = Vec::new();
+		if tens != 0 {
+			vec_res.push(digits[tens]);
+		}
+		vec_res.push(digits[ones]);
+		Some(vec_res)
+	}
 }
 
 #[cfg(test)]
@@ -103,5 +126,28 @@ mod tests {
 		let msg = b"Link Litentry: 0123456789abcdef0123456789abcdef9999".encode();
 		let res = eth_data_hash(msg.clone()).ok().unwrap();
 		assert_eq!(eth_data_hash_test_helper(msg), res);
+	}
+
+	// Test input with more than 2 digits
+	#[test]
+	fn usize_to_u8_array_input_too_large() {
+		let len: usize = 105;
+		assert_eq!(None, usize_to_u8_array(len))
+	}
+
+	// Test inputs with one and two digits respectively
+	// UTF8 Table:
+	// 4 - 0x34 - 52
+	// 0 - 0x30 - 48
+	#[test]
+	fn usize_to_u8_array_input_one_digit() {
+		let len: usize = 4;
+		assert_eq!(Some(vec![52]), usize_to_u8_array(len))
+	}
+
+	#[test]
+	fn usize_to_u8_array_input_two_digits() {
+		let len: usize = 40;
+		assert_eq!(Some(vec![52,48]), usize_to_u8_array(len))
 	}
 }
