@@ -261,7 +261,7 @@ decl_module! {
 		}
 
 		#[weight = 10_000]
-		pub fn clear_claim(origin, block: T::BlockNumber)-> dispatch::DispatchResult {
+		fn clear_claim(origin, block: T::BlockNumber)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
 			// Remove all claimed accounts
@@ -271,7 +271,7 @@ decl_module! {
 		}
 
 		#[weight = 10_000]
-		pub fn record_balance(
+		fn record_balance(
 			origin,
 			account: T::AccountId,
 			block: T::BlockNumber,
@@ -376,19 +376,21 @@ impl<T: Trait> Module<T> {
 				} else {
 					match core::str::from_utf8(&info.infura) {
 						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
-					urls::HttpRequest::POST(urls::HttpPost {
-						url_main: "https://ropsten.infura.io/v3/",
-						blockchain: urls::BlockChainType::ETH,
-						prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-						delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-						postfix: r#"","latest"]}]"#,
-						api_token: token,
-						}), 
-					&Self::parse_infura_balances),
-					Err(_) => Err(Error::<T>::InvalidNumber),
+							urls::HttpRequest::POST(urls::HttpPost {
+								url_main: "https://ropsten.infura.io/v3/",
+								blockchain: urls::BlockChainType::ETH,
+								prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+								delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+								postfix: r#"","latest"]}]"#,
+								api_token: token,
+								}), 
+							&Self::parse_infura_balances),
+						Err(_) => Err(Error::<T>::InvalidNumber),
 					}
 				}
 			};
+
+			debug::info!("Offchain Worker ethscan balance got is {:?}", eth_balance);
 
 			match (btc_balance, eth_balance) {
 				(Ok(btc), Ok(eth)) => {
@@ -487,6 +489,8 @@ impl<T: Trait> Module<T> {
 			},
 		};
 		
+		debug::info!("Offchain Worker fetch_balances response from ethscan is {:?}", &result);
+
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
 		let balances = parser(response);
 
@@ -568,6 +572,8 @@ impl<T: Trait> Module<T> {
 		//     {"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"2571179226430511381996287"}
 		//   ]
 		// }
+		debug::info!("Offchain Worker response from ethscan is {:?}", price_str);
+
 		let token_info: EtherScanResponse = serde_json::from_str(price_str).ok()?;
 		let result: Vec<u128> = token_info.result.iter().map(|item| match Self::chars_to_u128(&item.balance.iter().map(|i| *i as char).collect()) {
 			Ok(balance) => balance,
@@ -675,7 +681,7 @@ impl<T: Trait> Module<T> {
 
 	fn get_token<'a>() -> Result<(), &'static str> {
 	
-		let pending = http::Request::get("http://127.0.0.1:3000").send()
+		let pending = http::Request::get("http://127.0.0.1:4000").send()
 			.map_err(|_| "Error in sending http GET request")?;
 
 		let response = pending.wait()
