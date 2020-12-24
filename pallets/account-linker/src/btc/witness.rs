@@ -224,20 +224,6 @@ mod tests {
 	fn test_to_base58_basic() {
 		assert_eq!(from_utf8(&vec![0x00, 0x01, 0x02].encode(b"bech32".to_vec()).unwrap()).unwrap(), "bech321qpz4nc4pe");
     }
-	// #[test]
-	// fn test_to_base32_basic() {
-	// 	assert_eq!(from_utf8(&b"".to_base32()).unwrap(), "");
-	// 	assert_eq!(from_utf8(&[32].to_base32()).unwrap(), "Z");
-	// 	assert_eq!(from_utf8(&[45].to_base32()).unwrap(), "n");
-	// 	assert_eq!(from_utf8(&[48].to_base32()).unwrap(), "q");
-	// 	assert_eq!(from_utf8(&[49].to_base32()).unwrap(), "r");
-	// 	assert_eq!(from_utf8(&[57].to_base32()).unwrap(), "z");
-	// 	assert_eq!(from_utf8(&[45, 49].to_base32()).unwrap(), "4SU");
-	// 	assert_eq!(from_utf8(&[49, 49].to_base32()).unwrap(), "4k8");
-	// 	assert_eq!(from_utf8(&b"abc".to_base32()).unwrap(), "ZiCa");
-	// 	assert_eq!(from_utf8(&b"1234598760".to_base32()).unwrap(), "3mJr7AoUXx2Wqd");
-	// 	assert_eq!(from_utf8(&b"abcdefghijklmnopqrstuvwxyz".to_base32()).unwrap(), "3yxU3u1igY8WkgtjK92fbJQCd4BZiiT1v25f");
-    // }
 
     #[test]
     fn valid_address() {
