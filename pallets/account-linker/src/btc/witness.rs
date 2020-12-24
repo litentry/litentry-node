@@ -221,7 +221,7 @@ mod tests {
 	use std::str::from_utf8;
 
 	#[test]
-	fn test_to_base58_basic() {
+	fn test_to_base32_basic() {
 		assert_eq!(from_utf8(&vec![0x00, 0x01, 0x02].encode(b"bech32".to_vec()).unwrap()).unwrap(), "bech321qpz4nc4pe");
     }
 
