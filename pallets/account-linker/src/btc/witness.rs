@@ -143,10 +143,6 @@ pub trait ToBase32 {
 
 impl ToBase32 for [u8] {
     // /// Convert between bit sizes
-    // ///
-    // /// # Panics
-    // /// Function will panic if attempting to convert `from` or `to` a bit size that
-    // /// is larger than 8 bits.
     // fn to_base32(&self) -> Vec<u8> {
     //     let from: u32 = 8;
     //     let to: u32 = 5;
@@ -194,7 +190,7 @@ impl ToBase32 for [u8] {
             }
 
             // Combine all bits from buffer with enough bits from this rounds byte so that they fill
-            // a u5. Save reamining bits from byte to buffer.
+            // a u5. Save remaining bits from byte to buffer.
             let from_buffer = buffer >> 3;
             let from_byte = b >> (3 + buffer_bits); // buffer_bits <= 4
 
