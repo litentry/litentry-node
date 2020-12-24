@@ -1,5 +1,51 @@
 use sp_std::prelude::*;
 
+
+pub struct WitnessProgram {
+    /// Witness program version
+    pub version: u8,
+    /// Witness program content
+    pub program: Vec<u8>
+}
+
+impl WitnessProgram {
+    /// Converts a Witness Program to a SegWit Address
+    pub fn to_address(&self, hrp: Vec<u8>) -> Result<Vec<u8>, &'static str> {
+        // Verify that the program is valid
+        let mut data: Vec<u8> = vec![self.version];
+        // Convert 8-bit program into 5-bit
+        let p5 = self.program.to_base32();
+        // let p5 = convert_bits(self.program.to_vec(), 8, 5, true)?;
+        data.extend_from_slice(&p5);
+        let b32 = data.encode(hrp)?;
+        Ok(b32)
+    }
+
+    /// Extracts a WitnessProgram out of a provided script public key
+    pub fn from_scriptpubkey(pubkey: &[u8]) -> Result<Self, &'static str> {
+        // We need a version byte and a program length byte, with a program at 
+        // least 2 bytes long.
+        if pubkey.len() < 4 {
+            return Err("TooShort")
+        }
+        let proglen: usize = pubkey[1] as usize;
+        // Check that program length byte is consistent with pubkey length
+        if pubkey.len() != 2 + proglen {
+            return Err("InvalidLengthByte")
+        }
+        // Process script version
+        let mut v: u8 = pubkey[0];
+        if v > 0x50 {
+            v -= 0x50;
+        }
+        let program = &pubkey[2..];
+        Ok(WitnessProgram {
+            version: v,
+            program: program.to_vec()
+        })
+    }
+}
+
 const SEP: u8 = b'1';
 const ALPHABET: &'static [u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 
@@ -69,14 +115,151 @@ fn polymod(values: Vec<u8>) -> u32 {
     chk
 }
 
+/// A trait for converting a value to base58 encoded string.
+pub trait ToBase32 {
+	/// Converts a value of `self` to a base58 value, returning the owned string.
+	fn to_base32(&self) -> Vec<u8>;
+}
+
+impl ToBase32 for [u8] {
+	fn to_base32(&self) -> Vec<u8> {
+        // Amount of bits left over from last round, stored in buffer.
+        let mut buffer_bits = 0u32;
+        // Holds all unwritten bits left over from last round. The bits are stored beginning from
+        // the most significant bit. E.g. if buffer_bits=3, then the byte with bits a, b and c will
+        // look as follows: [a, b, c, 0, 0, 0, 0, 0]
+        let mut buffer: u8 = 0;
+
+        let mut result = Vec::new();
+
+
+        for b in self.into_iter() {
+            // Write first u5 if we have to write two u5s this round. That only happens if the
+            // buffer holds too many bits, so we don't have to combine buffer bits with new bits
+            // from this rounds byte.
+            if buffer_bits >= 5 {
+                result.push((buffer & 0b1111_1000) >> 3);
+                buffer <<= 5;
+                buffer_bits -= 5;
+            }
+
+            // Combine all bits from buffer with enough bits from this rounds byte so that they fill
+            // a u5. Save reamining bits from byte to buffer.
+            let from_buffer = buffer >> 3;
+            let from_byte = b >> (3 + buffer_bits); // buffer_bits <= 4
+
+            result.push(from_buffer | from_byte);
+            buffer = b << (5 - buffer_bits);
+            buffer_bits += 3;
+        }
+
+        // There can be at most two u5s left in the buffer after processing all bytes, write them.
+        if buffer_bits >= 5 {
+            result.push((buffer & 0b1111_1000) >> 3);
+            buffer <<= 5;
+            buffer_bits -= 5;
+        }
+
+        if buffer_bits != 0 {
+            result.push(buffer >> 3);
+        }
+
+        result
+
+	}
+}
+
 #[cfg(test)]
 mod tests {
-	use super::Bech32;
+	use super::*;
 	use std::str::from_utf8;
+	use hex::decode;
 
 	#[test]
 	fn test_to_base58_basic() {
 		assert_eq!(from_utf8(&vec![0x00, 0x01, 0x02].encode(b"bech32".to_vec()).unwrap()).unwrap(), "bech321qpz4nc4pe");
+    }
+	// #[test]
+	// fn test_to_base32_basic() {
+	// 	assert_eq!(from_utf8(&b"".to_base32()).unwrap(), "");
+	// 	assert_eq!(from_utf8(&[32].to_base32()).unwrap(), "Z");
+	// 	assert_eq!(from_utf8(&[45].to_base32()).unwrap(), "n");
+	// 	assert_eq!(from_utf8(&[48].to_base32()).unwrap(), "q");
+	// 	assert_eq!(from_utf8(&[49].to_base32()).unwrap(), "r");
+	// 	assert_eq!(from_utf8(&[57].to_base32()).unwrap(), "z");
+	// 	assert_eq!(from_utf8(&[45, 49].to_base32()).unwrap(), "4SU");
+	// 	assert_eq!(from_utf8(&[49, 49].to_base32()).unwrap(), "4k8");
+	// 	assert_eq!(from_utf8(&b"abc".to_base32()).unwrap(), "ZiCa");
+	// 	assert_eq!(from_utf8(&b"1234598760".to_base32()).unwrap(), "3mJr7AoUXx2Wqd");
+	// 	assert_eq!(from_utf8(&b"abcdefghijklmnopqrstuvwxyz".to_base32()).unwrap(), "3yxU3u1igY8WkgtjK92fbJQCd4BZiiT1v25f");
+    // }
+
+    #[test]
+    fn valid_address() {
+        let pairs: Vec<(&str, Vec<u8>)> = vec![
+            (
+                "BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4",
+                vec![
+                    0x00, 0x14, 0x75, 0x1e, 0x76, 0xe8, 0x19, 0x91, 0x96, 0xd4, 0x54,
+                    0x94, 0x1c, 0x45, 0xd1, 0xb3, 0xa3, 0x23, 0xf1, 0x43, 0x3b, 0xd6
+                ]
+            ),
+            (
+                "bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
+                vec![
+                    0x00, 0x20, 0x18, 0x63, 0x14, 0x3c, 0x14, 0xc5, 0x16, 0x68, 0x04,
+                    0xbd, 0x19, 0x20, 0x33, 0x56, 0xda, 0x13, 0x6c, 0x98, 0x56, 0x78,
+                    0xcd, 0x4d, 0x27, 0xa1, 0xb8, 0xc6, 0x32, 0x96, 0x04, 0x90, 0x32,
+                    0x62
+                ]
+            ),
+            (
+                "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx",
+                vec![
+                    0x51, 0x28, 0x75, 0x1e, 0x76, 0xe8, 0x19, 0x91, 0x96, 0xd4, 0x54,
+                    0x94, 0x1c, 0x45, 0xd1, 0xb3, 0xa3, 0x23, 0xf1, 0x43, 0x3b, 0xd6,
+                    0x75, 0x1e, 0x76, 0xe8, 0x19, 0x91, 0x96, 0xd4, 0x54, 0x94, 0x1c,
+                    0x45, 0xd1, 0xb3, 0xa3, 0x23, 0xf1, 0x43, 0x3b, 0xd6
+                ]
+            ),
+            (
+                "BC1SW50QA3JX3S",
+                vec![
+                   0x60, 0x02, 0x75, 0x1e
+                ]
+            ),
+            (
+                "bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj",
+                vec![
+                    0x52, 0x10, 0x75, 0x1e, 0x76, 0xe8, 0x19, 0x91, 0x96, 0xd4, 0x54,
+                    0x94, 0x1c, 0x45, 0xd1, 0xb3, 0xa3, 0x23
+                ]
+            ),
+            (
+                "bc1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy",
+                vec![
+                    0x00, 0x20, 0x00, 0x00, 0x00, 0xc4, 0xa5, 0xca, 0xd4, 0x62, 0x21,
+                    0xb2, 0xa1, 0x87, 0x90, 0x5e, 0x52, 0x66, 0x36, 0x2b, 0x99, 0xd5,
+                    0xe9, 0x1c, 0x6c, 0xe2, 0x4d, 0x16, 0x5d, 0xab, 0x93, 0xe8, 0x64,
+                    0x33
+                ]
+            ),
+        ];
+        for p in pairs {
+            let (address, scriptpubkey) = p;
+
+            let hrp = b"bc".to_vec();
+
+            let spk_result = WitnessProgram::from_scriptpubkey(&scriptpubkey);
+            assert!(spk_result.is_ok());
+            let prog = spk_result.unwrap();
+
+            let enc_result = prog.to_address(hrp);
+            assert!(enc_result.is_ok());
+
+            let enc_address = enc_result.unwrap();
+            assert_eq!(address.to_lowercase(), from_utf8(&enc_address).unwrap().to_lowercase());
+        }
     }
     
 }
