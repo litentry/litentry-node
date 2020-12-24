@@ -4,6 +4,8 @@ import { UInt } from '@polkadot/types/codec';
 import { TypeRegistry } from "@polkadot/types/create";
 // Import Web3 from 'web3';
 import { expect } from "chai";
+import { step } from "mocha-steps";
+import { describeLitentry } from "./utils"
 
 const privateKey = '0xe82c0c4259710bb0d6cf9f9e8d0ad73419c1278a14d375e5ca691e7618103011';
 
@@ -171,20 +173,40 @@ async function get_assets(api: ApiPromise, alice: KeyringPair) {
 
 }
 
-async function main() {
-	const { api, alice } = await init();
+//async function main() {
+//	const { api, alice } = await init();
+//
+//	// step 1: Creating Ethereum link from ALICE
+//	const link = await eth_link(api, alice)
+//
+//	// step 2: Retrieving Alice's linked Ethereum accounts
+//	await check_linking_state(api, alice);
+//
+//	// step 3: Claim assets for Alice
+//	await asset_claim(api, alice);
+//
+//	// step 4: Retrieving assets information of Alice
+//	await get_assets(api, alice);
+//}
+//
+//main().catch(console.error).then(() => process.exit(0));
 
-	// step 1: Creating the contract from ALICE
-	const link = await eth_link(api, alice)
+describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
 
-	// step 2: Retrieving Alice's linked Ethereum accounts
-	await check_linking_state(api, alice);
+  step("Create Ethereum Link", async function () {
+    await eth_link(context.api, context.alice);
+  })
 
-	// step 3: Claim assets for Alice
-	await asset_claim(api, alice);
+  step("Retrieving Alice's linked Ethereum accounts", async function () {
+    await check_linking_state(context.api, context.alice);
+  })
 
-	// step 4: Retrieving assets information of Alice
-	await get_assets(api, alice);
-}
+  step("Claim assets for Alice", async function () {
+    await asset_claim(context.api, context.alice);
+  })
 
-main().catch(console.error).then(() => process.exit(0));
+  step("Retrieving assets information of Alice", async function () {
+    await get_assets(context.api, context.alice);
+  })
+
+});
