@@ -141,8 +141,11 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
 	//    pubKey.encodeCompressed("hex"));
   // let signature = ec.sign(hash, privKey, "hex", {canonical: true});
 
+  // Convert ethereum address to bytes array
+  let ethAddressBytes = web3.utils.hexToBytes(web3.eth.accounts.privateKeyToAccount(privateKey).address);
+
   //const transaction = api.tx.accountLinkerModule.link(alice.address, 0, 10000, vrs[1], vrs[2], vrs[0]);
-  const transaction = api.tx.accountLinkerModule.linkEth(alice.address, 0, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
+  const transaction = api.tx.accountLinkerModule.linkEth(alice.address, 0, ethAddressBytes, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
 
   const link = new Promise<{ block: string }>(async (resolve, reject) => {
 		const unsub = await transaction.signAndSend(alice, (result) => {
