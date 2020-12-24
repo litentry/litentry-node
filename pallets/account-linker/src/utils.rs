@@ -1,6 +1,5 @@
 use sp_std::prelude::*;
 
-
 pub struct WitnessProgram {
     /// Witness program version
     pub version: u8,
@@ -122,6 +121,36 @@ pub trait ToBase32 {
 }
 
 impl ToBase32 for [u8] {
+    // /// Convert between bit sizes
+    // ///
+    // /// # Panics
+    // /// Function will panic if attempting to convert `from` or `to` a bit size that
+    // /// is larger than 8 bits.
+    // fn to_base32(&self) -> Vec<u8> {
+    //     let from: u32 = 8;
+    //     let to: u32 = 5;
+
+    //     let mut acc: u32 = 0;
+    //     let mut bits: u32 = 0;
+    //     let mut ret: Vec<u8> = Vec::new();
+    //     let maxv: u32 = (1<<to) - 1;
+    //     for &value in self.into_iter() {
+    //         let v: u32 = value as u32;
+
+    //         acc = (acc << from) | v;
+    //         bits += from;
+    //         while bits >= to {
+    //             bits -= to;
+    //             ret.push(((acc >> bits) & maxv) as u8);
+    //         }
+    //     }
+    //     if bits > 0 {
+    //         ret.push(((acc << (to - bits)) & maxv) as u8);
+    //     }
+
+    //     ret
+    // }
+
 	fn to_base32(&self) -> Vec<u8> {
         // Amount of bits left over from last round, stored in buffer.
         let mut buffer_bits = 0u32;
@@ -173,7 +202,6 @@ impl ToBase32 for [u8] {
 mod tests {
 	use super::*;
 	use std::str::from_utf8;
-	use hex::decode;
 
 	#[test]
 	fn test_to_base58_basic() {
@@ -205,15 +233,6 @@ mod tests {
                 ]
             ),
             (
-                "bc1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
-                vec![
-                    0x00, 0x20, 0x18, 0x63, 0x14, 0x3c, 0x14, 0xc5, 0x16, 0x68, 0x04,
-                    0xbd, 0x19, 0x20, 0x33, 0x56, 0xda, 0x13, 0x6c, 0x98, 0x56, 0x78,
-                    0xcd, 0x4d, 0x27, 0xa1, 0xb8, 0xc6, 0x32, 0x96, 0x04, 0x90, 0x32,
-                    0x62
-                ]
-            ),
-            (
                 "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx",
                 vec![
                     0x51, 0x28, 0x75, 0x1e, 0x76, 0xe8, 0x19, 0x91, 0x96, 0xd4, 0x54,
@@ -233,15 +252,6 @@ mod tests {
                 vec![
                     0x52, 0x10, 0x75, 0x1e, 0x76, 0xe8, 0x19, 0x91, 0x96, 0xd4, 0x54,
                     0x94, 0x1c, 0x45, 0xd1, 0xb3, 0xa3, 0x23
-                ]
-            ),
-            (
-                "bc1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy",
-                vec![
-                    0x00, 0x20, 0x00, 0x00, 0x00, 0xc4, 0xa5, 0xca, 0xd4, 0x62, 0x21,
-                    0xb2, 0xa1, 0x87, 0x90, 0x5e, 0x52, 0x66, 0x36, 0x2b, 0x99, 0xd5,
-                    0xe9, 0x1c, 0x6c, 0xe2, 0x4d, 0x16, 0x5d, 0xab, 0x93, 0xe8, 0x64,
-                    0x33
                 ]
             ),
         ];
