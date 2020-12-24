@@ -82,15 +82,18 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
   encodedMsg.set(alice.addressRaw, encodedPrefix.length);
   encodedMsg.set(encodedExpiredBlock, encodedPrefix.length + alice.addressRaw.length);
 
-	// Web3 is used to sign the message with ethereum prefix ("\x19Ethereum ...")
-	const Web3 = require("web3");
+  // Web3 is used to sign the message with ethereum prefix ("\x19Ethereum ...")
+  const Web3 = require("web3");
   const web3 = new Web3();
    // Convert byte array to hex string
   let hexString = "0x" + Buffer.from(encodedMsg).toString('hex');
 
   let signedMsg = web3.eth.accounts.sign(hexString, privateKey);
+  
+  // Convert ethereum address to bytes array
+  let ethAddressBytes = web3.utils.hexToBytes(web3.eth.accounts.privateKeyToAccount(privateKey).address);
 
-  const transaction = api.tx.accountLinkerModule.linkEth(alice.address, 0, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
+  const transaction = api.tx.accountLinkerModule.linkEth(alice.address, 0, ethAddressBytes, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
 
   const link = new Promise<{ block: string }>(async (resolve, reject) => {
 		const unsub = await transaction.signAndSend(alice, (result) => {

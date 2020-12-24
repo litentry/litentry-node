@@ -102,9 +102,45 @@ fn test_invalid_block_number() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let result = AccountLinker::link_eth(Origin::signed(account.clone()), account.clone(), 0, block_number, r, s, v);
+		let result = AccountLinker::link_eth(
+			Origin::signed(account.clone()),
+			account.clone(),
+			0,
+			key_pair.address().to_fixed_bytes(),
+			block_number,
+			r,
+			s,
+			v);
 		assert_eq!(result.is_err(), true);
 		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::LinkRequestExpired)));
+	});
+}
+
+#[test]
+fn test_unexpected_address() {
+	new_test_ext().execute_with(|| {
+
+		let account: AccountId32 = AccountId32::from([72u8; 32]);
+		let block_number: u32 = 99999;
+
+		let mut gen = Random{};
+		let key_pair = gen.generate().unwrap();
+
+		let msg = generate_msg(&account, block_number);
+		let sig = generate_sig(&key_pair, &msg);
+		let (r, s, v) = generate_rsv(&sig);
+
+		let result = AccountLinker::link_eth(
+			Origin::signed(account.clone()),
+			account.clone(),
+			0,
+			gen.generate().unwrap().address().to_fixed_bytes(),
+			block_number,
+			r,
+			s,
+			v);
+		assert_eq!(result.is_err(), true);
+		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::UnexpectedAddress)));
 	});
 }
 
@@ -130,6 +166,7 @@ fn test_insert_eth_address() {
 			let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
 										account.clone(),
 										i as u32,
+										key_pair.address().to_fixed_bytes(),
 										block_number + i as u32,
 										r,
 										s,
@@ -137,7 +174,7 @@ fn test_insert_eth_address() {
 			assert_eq!(AccountLinker::eth_addresses(&account).len(), i+1);
 			expected_vec.push(key_pair.address().to_fixed_bytes());
 		}
-		assert_eq!(AccountLinker::eth_addresses(account.clone()), expected_vec);
+		assert_eq!(AccountLinker::eth_addresses(&account), expected_vec);
 	});
 }
 
@@ -158,6 +195,7 @@ fn test_update_eth_address() {
 			let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
 										account.clone(),
 										i as u32,
+										key_pair.address().to_fixed_bytes(),
 										block_number + i as u32,
 										r,
 										s,
@@ -177,6 +215,7 @@ fn test_update_eth_address() {
 		let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
 									account.clone(),
 									index,
+									key_pair.address().to_fixed_bytes(),
 									block_number,
 									r,
 									s,
@@ -208,6 +247,7 @@ fn test_eth_address_pool_overflow() {
 			let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
 										account.clone(),
 										index as u32,
+										key_pair.address().to_fixed_bytes(),
 										block_number,
 										r,
 										s,
