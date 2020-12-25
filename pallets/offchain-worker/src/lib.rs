@@ -1,56 +1,13 @@
-//!pub const ETHERSCAN_REQUEST: HttpGet = HttpGet {
-//!		// https://api.etherscan.io/api?module=account&action=balancemulti&address=0x742d35Cc6634C0532925a3b844Bc454e4438f44e,0x742d35Cc6634C0532925a3b844Bc454e4438f44e&tag=latest&apikey=RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB
-//!		// The link is ETHER_SCAN_PREFIX + 1st Ethereum account + ETHER_SCAN_DELIMITER + 2nd Ethereum account + ... + ETHER_SCAN_POSTFIX + ETHER_SCAN_TOKEN
-
-//!		blockchain: BlockChainType::ETH,
-//!		prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
-//!		delimiter: ",0x",
-//!		postfix: "&tag=latest&apikey=", 
-//!		api_token: "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB",
-//!		//sample_acc: "742d35Cc6634C0532925a3b844Bc454e4438f44e",
-//!		//sample_acc_add: "",
-//!	};
-
-//!	pub const BLOCKCHAIN_INFO_REQUEST: HttpGet = HttpGet {
-//!		// https://blockchain.info/balance?active=1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa%7C15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6
-//!		// The link is composed of BLOCKCHAIN_INFO_PREFIX + 1st Bitcoin account + BLOCKCHAIN_INFO_DELIMITER 
-//!		//                         + 2nd Bitcoin account + ... + BLOCKCHAIN_INFO_POSTFIX
-
-//!		blockchain: BlockChainType::BTC,
-//!		prefix: "https://blockchain.info/balance?active=",
-//!		// The "%7C" is encoded of | delimiter in URL
-//!		delimiter: "%7C",
-//!		postfix: "",
-//!		api_token: "",
-//!		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-//!		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
-//!	};
-
-//!	pub const INFURA_REQUEST: HttpPost = HttpPost {
-//!		// https://mainnet.infura.io/v3/aa0a6af5f94549928307febe80612a2a
-//!		// Head: "Content-Type: application/json"
-//!		// Body: 
-//!		//			[
-//!		//				{
-//!		//					"jsonrpc":"2.0",
-//!		//					"method":"eth_getBalance",
-//!		//					"id":1,
-//!		//					"params":["0x0x4d88dc5D528A33E4b8bE579e9476715F60060582","latest"]
-//!		//				},
-//!		//				...
-//!		//			]
-
-//!		blockchain: BlockChainType::ETH,
-//!		url_main: "https://ropsten.infura.io/v3/",
-//!		api_token: "aa0a6af5f94549928307febe80612a2a",
-
-//!		// Batch multiple json rpc calls within one request, therefore wrapped with [] and separated by ,
-//!		prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-//!		delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-//!		postfix: r#"","latest"]}]"#,
-//!		//sample_acc: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-//!		//sample_acc_add: "1XPTgDRhN8RFnzniWCddobD9iKZatrvH4",
-//!	};
+//! # Offchain Worker 
+//! The pallet is responsible for get the external assets claim from the extrinsic and then query and aggregate the 
+//! balance (btc and eth) according to linked external accounts in account linker pallet. Offchain worker get the data
+//! from most popular websire like ethscan, infura and blockinfo. After get the balance, Offchain worker emit the event
+//! with balance info and store them on chain for on-chain query.
+//! 
+//! ## API token
+//! The offchain worker need the API token to query data from third party data provider. Currently, offchain worker get 
+//! the API tokens from a local server. Then store the API tokens in offchain worder local storage.
+//! 
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -85,55 +42,70 @@ mod utils;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 
-// Specifying serde path as `alt_serde`
-// ref: https://serde.rs/container-attrs.html#crate
+/// Store all API tokens for offchain worker to send request to website
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct TokenInfo {
-	// Specify our own deserializing function to convert JSON string to vector of bytes
+	/// API token for ethscan service
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	ethscan: Vec<u8>,
+	/// API token for infura service
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	infura: Vec<u8>,
+	/// API token for blockchain.info website
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	blockchain: Vec<u8>,
 }
 
+/// Balances data embedded in ethscan response
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct EtherScanBalance {
+	/// Ethereum account
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	account: Vec<u8>,
+	/// Eth balance
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	balance: Vec<u8>,
 }
 
+/// Response data from ethscan
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct EtherScanResponse {
+	/// Http response status
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	status: Vec<u8>,
+	/// Http response message
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	message: Vec<u8>,
+	/// Ethereum account and its balance
 	result: Vec<EtherScanBalance>,
 }
 
+/// Balances data from Infura service
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct InfuraBalance {
+	/// Json RPV version
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	jsonrpc: Vec<u8>,
+	/// Query ID
 	id: u32,
+	/// Balance data
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	result: Vec<u8>,
 }
 
+/// Response from Infura
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct InfuraResponse {
+	/// Response vector for several Ethreum account
 	response: Vec<InfuraBalance>,
 }
 
+/// Deserialize string to Vec<u8>
 pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
 where
 	D: Deserializer<'de>,
@@ -142,9 +114,8 @@ where
 	Ok(s.as_bytes().to_vec())
 }
 
+/// Implement Debug trait for print TokenInfo
 impl fmt::Debug for TokenInfo {
-	// `fmt` converts the vector of bytes inside the struct back to string for
-	//   more friendly display.
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
@@ -156,12 +127,17 @@ impl fmt::Debug for TokenInfo {
 	}
 }
 
+/// URL mod to define request data structure
 mod urls {
+	/// Asset type
 	pub enum BlockChainType {
+		/// eth token
 		ETH,
+		/// bitcoin
 		BTC,
 	}
 
+	/// Http Get URL structure
 	pub struct HttpGet<'a> {
 		pub blockchain: BlockChainType,
 		// URL affix
@@ -171,6 +147,7 @@ mod urls {
 		pub api_token: &'a str,
 	}
 
+	/// Http Post URL structure
 	pub struct HttpPost<'a> {
 		pub blockchain: BlockChainType,
 		// URL affix
@@ -182,6 +159,7 @@ mod urls {
 		pub postfix: &'a str,
 	}
 
+	/// Request enum to wrap up both get and post method
 	pub enum HttpRequest<'a> {
 		GET(HttpGet<'a>),
 		POST(HttpPost<'a>),
@@ -235,7 +213,9 @@ decl_error! {
 		/// Error names should be descriptive.
 		NoneValue,
 		/// Error number parsing.
-		InvalidNumber
+		InvalidNumber,
+		/// Account already in claim list.
+		AccountAlreadyInClaimlist,
 	}
 }
 
@@ -250,17 +230,20 @@ decl_module! {
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 
+		// Request offchain worker to get balance of linked external account
 		#[weight = 10_000]
 		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
 			let account = ensure_signed(origin)?;
 
-			ensure!(!ClaimAccountSet::<T>::contains_key(&account), Error::<T>::InvalidNumber);
+			// If the same claim not processed yet
+			ensure!(!ClaimAccountSet::<T>::contains_key(&account), Error::<T>::AccountAlreadyInClaimlist);
 
 			<ClaimAccountSet<T>>::insert(&account, ());
 
 			Ok(())
 		}
 
+		// Clear claimed account list
 		#[weight = 10_000]
 		fn clear_claim(origin, block: T::BlockNumber)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
@@ -271,6 +254,7 @@ decl_module! {
 			Ok(())
 		}
 
+		// Record the balance on chain
 		#[weight = 10_000]
 		fn record_balance(
 			origin,
@@ -288,7 +272,6 @@ decl_module! {
 			// Spit out an event and Add to storage
 			Self::deposit_event(RawEvent::BalanceGot(account, block, btc_balance, eth_balance));
 
-			
 			Ok(())
 		}
 
@@ -329,7 +312,7 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber, info: &TokenInfo) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			
+			// Get balance from ethscan
 			let eth_balance = {
 				if info.ethscan.len() == 0 {
 					Err(Error::<T>::InvalidNumber)
@@ -349,6 +332,7 @@ impl<T: Trait> Module<T> {
 				}
 			};
 			
+			// Get balance from blockchain.info
 			let btc_balance = {
 				if info.blockchain.len() == 0 {
 					Err(Error::<T>::InvalidNumber)
@@ -368,7 +352,7 @@ impl<T: Trait> Module<T> {
 				}
 			};
 
-			// TODO Dispatch different nodes to fetch etc balance from different sources 
+			// Get the balance from Infura
 			let etc_balance_infura = {
 				if info.infura.len() == 0 {
 					Err(Error::<T>::InvalidNumber)
@@ -391,6 +375,7 @@ impl<T: Trait> Module<T> {
 
 			debug::info!("Offchain Worker ethscan balance got is {:?}", eth_balance);
 
+			// Store balance on chain after offchain worker query done
 			match (btc_balance, eth_balance) {
 				(Ok(btc), Ok(eth)) => {
 					let call = Call::record_balance(account.clone(), block, btc, eth);
@@ -434,9 +419,6 @@ impl<T: Trait> Module<T> {
 	// Generic function to fetch balance for specific link type
 	fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest, 
 		parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
-		// TODO add match expression later to distinguish eth and btc
-		//      generic array would be the best choice here, however seems it's still not completed in rust
-
 		// Return if no account linked
 		if wallet_accounts.len() == 0 {
 			return Ok(0_u128)
@@ -462,7 +444,7 @@ impl<T: Trait> Module<T> {
 				// Fetch json response via http get
 				Self::fetch_json_http_get(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
-			// TODO finish POST
+
 			urls::HttpRequest::POST(post_req) => {
 				// Compose the post request URL
 				let mut link: Vec<u8> = Vec::new();
@@ -488,14 +470,13 @@ impl<T: Trait> Module<T> {
 			},
 		};
 		
-		debug::info!("Offchain Worker fetch_balances response from ethscan is {:?}", &result);
-
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
 		let balances = parser(response);
 
 		match balances {
 			Some(data) => {
 				let mut total_balance: u128 = 0;
+				// Sum up the balance
 				for balance in data {
 					total_balance = total_balance + balance;
 				}
@@ -510,8 +491,6 @@ impl<T: Trait> Module<T> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
 	
-		debug::info!("Offchain Worker get request url is {}.", remote_url_str);
-
 		let pending = http::Request::get(remote_url_str).send()
 			.map_err(|_| "Error in sending http GET request")?;
 
@@ -535,11 +514,8 @@ impl<T: Trait> Module<T> {
 	fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<Vec<u8>, &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
-		let request_body_str = core::str::from_utf8(body)
-			.map_err(|_| "Error in converting body to string")?;
 	
 		debug::info!("Offchain Worker post request url is {}.", remote_url_str);
-		debug::info!("Offchain Worker post request body is {}.", request_body_str);
 		
 		let pending = http::Request::post(remote_url_str, vec![body]).send()
 			.map_err(|_| "Error in sending http POST request")?;
@@ -678,6 +654,7 @@ impl<T: Trait> Module<T> {
 		return vec_result;
 	}
 
+	// Get the API tokens from local server
 	fn get_token<'a>() -> Result<(), &'static str> {
 	
 		let pending = http::Request::get("http://127.0.0.1:4000").send()
