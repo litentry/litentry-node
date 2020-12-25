@@ -257,6 +257,7 @@ decl_module! {
 			ensure!(!ClaimAccountSet::<T>::contains_key(&account), Error::<T>::InvalidNumber);
 
 			<ClaimAccountSet<T>>::insert(&account, ());
+
 			Ok(())
 		}
 
@@ -287,6 +288,7 @@ decl_module! {
 			// Spit out an event and Add to storage
 			Self::deposit_event(RawEvent::BalanceGot(account, block, btc_balance, eth_balance));
 
+			
 			Ok(())
 		}
 
@@ -294,9 +296,6 @@ decl_module! {
 		fn offchain_worker(block: T::BlockNumber) {
 			// Get the all accounts who ask for asset claims
 			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
-			// Remove all claimed accounts
-			// TODO seems it doesn't work here to update ClaimAccountSet
-			// <ClaimAccountSet::<T>>::remove_all();
 
 			let s_info = StorageValueRef::persistent(b"offchain-worker::token");
 			match s_info.get::<TokenInfo>() {

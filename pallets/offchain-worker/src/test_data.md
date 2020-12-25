@@ -30,7 +30,6 @@ https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=
 1CuEaUAvhm8D9SkwEVLgqvFShHAxKmbW19
 
 
-
 ## bitcoin signature
 r = 0x7ab3d2376eda8d43f0d09cc3bbfaf84131db254adbd44b2366ed537ddac3c230
 [122, 179, 210, 55, 110, 218, 141, 67, 240, 208, 156, 195, 187, 250, 248, 65, 49, 219, 37, 74, 219, 212, 75, 35, 102, 237, 83, 125, 218, 195, 194, 48]
@@ -39,6 +38,8 @@ s = 0x27cbdc60995ead5268c61a3b1f86042c030548e9377aec95909c87dc625dcb2a
 [39, 203, 220, 96, 153, 94, 173, 82, 104, 198, 26, 59, 31, 134, 4, 44, 3, 5, 72, 233, 55, 122, 236, 149, 144, 156, 135, 220, 98, 93, 203, 42]
 
 v = 0
-address before ss58 0x001db22bfeb133761132194c1c4688194dd58fc6373672a95d
+
+[u8; 25] prefix 0 + hash160  + checksum 4 bytes.
+0x001db22bfeb133761132194c1c4688194dd58fc6373672a95d
 address 1MnqFoXqLWDGByG94fvvvWAPWE6tEUMQET
 
