@@ -12,8 +12,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod btc;
 mod util_eth;
-mod util_btc;
 
 pub const MAX_ETH_LINKS: usize = 3;
 pub const MAX_BTC_LINKS: usize = 3;
@@ -158,7 +158,7 @@ decl_module! {
 			pk[0] = 4;
 			pk[1..65].copy_from_slice(&pk_no_prefix);
 
-			let addr = util_btc::btc_addr_from_pk_uncompressed(pk);
+			let addr = btc::legacy::btc_addr_from_pk_uncompressed(pk);
 
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);
