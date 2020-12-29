@@ -1,7 +1,7 @@
 //! # Offchain Worker 
 //! The pallet is responsible for get the external assets claim from the extrinsic and then query and aggregate the 
 //! balance (btc and eth) according to linked external accounts in account linker pallet. Offchain worker get the data
-//! from most popular websire like ethscan, infura and blockinfo. After get the balance, Offchain worker emit the event
+//! from most popular websire like etherscan, infura and blockinfo. After get the balance, Offchain worker emit the event
 //! with balance info and store them on chain for on-chain query.
 //! 
 //! ## API token
@@ -41,14 +41,15 @@ mod tests;
 mod utils;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
+const TOKEN_SERVER_URL: &str = "http://127.0.0.1:4000";
 
 /// Store all API tokens for offchain worker to send request to website
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct TokenInfo {
-	/// API token for ethscan service
+	/// API token for etherscan service
 	#[serde(deserialize_with = "de_string_to_bytes")]
-	ethscan: Vec<u8>,
+	etherscan: Vec<u8>,
 	/// API token for infura service
 	#[serde(deserialize_with = "de_string_to_bytes")]
 	infura: Vec<u8>,
@@ -57,7 +58,7 @@ struct TokenInfo {
 	blockchain: Vec<u8>,
 }
 
-/// Balances data embedded in ethscan response
+/// Balances data embedded in etherscan response
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct EtherScanBalance {
@@ -69,7 +70,7 @@ struct EtherScanBalance {
 	balance: Vec<u8>,
 }
 
-/// Response data from ethscan
+/// Response data from etherscan
 #[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
 struct EtherScanResponse {
@@ -119,8 +120,8 @@ impl fmt::Debug for TokenInfo {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(
 			f,
-			"{{ ethscan: {}, infura: {}, blockchain: {} }}",
-			sp_std::str::from_utf8(&self.ethscan).map_err(|_| fmt::Error)?,
+			"{{ etherscan: {}, infura: {}, blockchain: {} }}",
+			sp_std::str::from_utf8(&self.etherscan).map_err(|_| fmt::Error)?,
 			sp_std::str::from_utf8(&self.infura).map_err(|_| fmt::Error)?,
 			sp_std::str::from_utf8(&self.blockchain).map_err(|_| fmt::Error)?,
 		)
@@ -312,12 +313,12 @@ impl<T: Trait> Module<T> {
 	// Fetch all claimed accounts
 	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber, info: &TokenInfo) ->  Result<(), Error<T>> {
 		for (_, account) in account_vec.iter().enumerate() {
-			// Get balance from ethscan
+			// Get balance from etherscan
 			let eth_balance = {
-				if info.ethscan.len() == 0 {
+				if info.etherscan.len() == 0 {
 					Err(Error::<T>::InvalidNumber)
 				} else {
-					match core::str::from_utf8(&info.ethscan) {
+					match core::str::from_utf8(&info.etherscan) {
 						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
 							urls::HttpRequest::GET(urls::HttpGet {
 								blockchain: urls::BlockChainType::ETH,
@@ -373,7 +374,7 @@ impl<T: Trait> Module<T> {
 				}
 			};
 
-			debug::info!("Offchain Worker ethscan balance got is {:?}", eth_balance);
+			debug::info!("Offchain Worker etherscan balance got is {:?}", eth_balance);
 
 			// Store balance on chain after offchain worker query done
 			match (btc_balance, eth_balance) {
@@ -547,7 +548,7 @@ impl<T: Trait> Module<T> {
 		//     {"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"2571179226430511381996287"}
 		//   ]
 		// }
-		debug::info!("Offchain Worker response from ethscan is {:?}", price_str);
+		debug::info!("Offchain Worker response from etherscan is {:?}", price_str);
 
 		let token_info: EtherScanResponse = serde_json::from_str(price_str).ok()?;
 		let result: Vec<u128> = token_info.result.iter().map(|item| match Self::chars_to_u128(&item.balance.iter().map(|i| *i as char).collect()) {
@@ -657,7 +658,7 @@ impl<T: Trait> Module<T> {
 	// Get the API tokens from local server
 	fn get_token<'a>() -> Result<(), &'static str> {
 	
-		let pending = http::Request::get("http://127.0.0.1:4000").send()
+		let pending = http::Request::get(TOKEN_SERVER_URL).send()
 			.map_err(|_| "Error in sending http GET request")?;
 
 		let response = pending.wait()

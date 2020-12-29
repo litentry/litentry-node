@@ -5,11 +5,13 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response, Server};
 use std::collections::HashMap;
 
+const LOCAL_URL: ([u8; 4], u16) = ([127, 0, 0, 1], 4000);
+
 fn read_token() -> String {
     let keys: Vec<&str> = vec![
-    "ethscan",
-    "infura",
-    "blockchain",
+        "ethscan",
+        "infura",
+        "blockchain",
     ];
 
     let mut token_map = HashMap::<&str, String>::new();
@@ -44,7 +46,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         async { Ok::<_, Infallible>(service_fn(hello)) }
     });
 
-    let addr = ([127, 0, 0, 1], 4000).into();
+    let addr = LOCAL_URL.into();
 
     let server = Server::bind(&addr).serve(make_svc);
 
