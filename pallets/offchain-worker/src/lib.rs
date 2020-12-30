@@ -12,10 +12,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_std::{prelude::*};
-use core::fmt;
+use core::{convert::TryInto, fmt};
 use frame_system::{
 	ensure_signed, ensure_none,
-	offchain::{CreateSignedTransaction, SubmitTransaction},
+	offchain::{CreateSignedTransaction, SubmitTransaction, Signer, AppCrypto, SendSignedTransaction,},
 };
 use frame_support::{
 	debug, dispatch, decl_module, decl_storage, decl_event, decl_error,
@@ -171,22 +171,31 @@ pub mod crypto {
 	use super::KEY_TYPE;
 	use sp_runtime::{
 		app_crypto::{app_crypto, sr25519},
-		traits::Verify,
+		traits::Verify, MultiSignature, MultiSigner,
 	};
 	use sp_core::sr25519::Signature as Sr25519Signature;
 	app_crypto!(sr25519, KEY_TYPE);
 
 	pub struct TestAuthId;
+	impl frame_system::offchain::AppCrypto<MultiSigner, MultiSignature> for TestAuthId {
+		type RuntimeAppPublic = Public;
+		type GenericSignature = sp_core::sr25519::Signature;
+		type GenericPublic = sp_core::sr25519::Public;
+	}
+
 	impl frame_system::offchain::AppCrypto<<Sr25519Signature as Verify>::Signer, Sr25519Signature> for TestAuthId {
 		type RuntimeAppPublic = Public;
 		type GenericSignature = sp_core::sr25519::Signature;
 		type GenericPublic = sp_core::sr25519::Public;
 	}
+
+	
 }
 
 pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTransaction<Call<Self>> {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Call: From<Call<Self>>;
+	type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 }
 
 decl_storage! {
@@ -197,6 +206,8 @@ decl_storage! {
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
 		/// Record account's btc and ethereum balance
 		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u128, u128);
+		/// Map AccountId
+		LastCommitBlockNumber get(fn last_commit_block_number): map hasher(blake2_128_concat) T::AccountId => T::BlockNumber;
 	}
 }
 
@@ -217,6 +228,10 @@ decl_error! {
 		InvalidNumber,
 		/// Account already in claim list.
 		AccountAlreadyInClaimlist,
+		/// No local account for offchain worker to sign extrinsic
+		NoLocalAcctForSigning,
+		/// Error from sign extrinsic
+		OffchainSignedTxError,
 	}
 }
 
@@ -272,6 +287,15 @@ decl_module! {
 			<AccountBalance<T>>::insert(account.clone(), (btc_balance, eth_balance));
 			// Spit out an event and Add to storage
 			Self::deposit_event(RawEvent::BalanceGot(account, block, btc_balance, eth_balance));
+
+			Ok(())
+		}
+
+		// Record the balance on chain
+		#[weight = 10_000]
+		fn submit_number_signed(origin, block: u64)-> dispatch::DispatchResult {
+			// Ensuring this is an unsigned tx
+			ensure_none(origin)?;
 
 			Ok(())
 		}
@@ -415,6 +439,40 @@ impl<T: Trait> Module<T> {
 			}
 		}
 		Ok(())
+	}
+
+	fn offchain_signed_tx(block_number: T::BlockNumber) -> Result<(), Error<T>> {
+		// We retrieve a signer and check if it is valid.
+		//   Since this pallet only has one key in the keystore. We use `any_account()1 to
+		//   retrieve it. If there are multiple keys and we want to pinpoint it, `with_filter()` can be chained,
+		//   ref: https://substrate.dev/rustdocs/v2.0.0/frame_system/offchain/struct.Signer.html
+		let signer = Signer::<T, T::AuthorityId>::any_account();
+
+		// Translating the current block number to number and submit it on-chain
+		let number: u64 = block_number.try_into().unwrap_or(0) as u64;
+
+		// `result` is in the type of `Option<(Account<T>, Result<(), ()>)>`. It is:
+		//   - `None`: no account is available for sending transaction
+		//   - `Some((account, Ok(())))`: transaction is successfully sent
+		//   - `Some((account, Err(())))`: error occured when sending the transaction
+		let result = signer.send_signed_transaction(|_acct|
+			// This is the on-chain function
+			Call::submit_number_signed(number)
+		);
+
+		// Display error if the signed tx fails.
+		if let Some((acc, res)) = result {
+			if res.is_err() {
+				debug::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+				return Err(<Error<T>>::OffchainSignedTxError);
+			}
+			// Transaction is sent successfully
+			return Ok(());
+		}
+
+		// The case of `None`: no account is available for sending
+		debug::error!("No local account available");
+		Err(<Error<T>>::NoLocalAcctForSigning)
 	}
 
 	// Generic function to fetch balance for specific link type

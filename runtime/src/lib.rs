@@ -281,6 +281,7 @@ impl pallet_account_linker::Trait for Runtime {
 impl pallet_offchain_worker::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
+	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
 	// type SubmitUnsignedTransaction = SubmitPFTransaction;
 
 }
