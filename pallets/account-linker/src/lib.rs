@@ -12,8 +12,8 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+mod btc;
 mod util_eth;
-mod util_btc;
 
 pub const MAX_ETH_LINKS: usize = 3;
 pub const MAX_BTC_LINKS: usize = 3;
@@ -42,6 +42,9 @@ decl_error! {
 	pub enum Error for Module<T: Trait> {
 		EcdsaRecoverFailure,
 		LinkRequestExpired,
+		UnexpectedAddress,
+		// Unexpected ethereum message length error
+		UnexpectedEthMsgLength,
 	}
 }
 
@@ -60,6 +63,7 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			index: u32,
+			addr_expected: [u8; 20],
 			expiring_block_number: T::BlockNumber,
 			r: [u8; 32],
 			s: [u8; 32],
@@ -79,7 +83,7 @@ decl_module! {
 			bytes.append(&mut account_vec);
 			bytes.append(&mut expiring_block_number_vec);
 
-			let hash = sp_io::hashing::keccak_256(&bytes);
+			let hash = util_eth::eth_data_hash(bytes).map_err(|_| Error::<T>::UnexpectedEthMsgLength)?;
 
 			let mut msg = [0u8; 32];
 			let mut sig = [0u8; 65];
@@ -91,6 +95,7 @@ decl_module! {
 
 			let addr = util_eth::addr_from_sig(msg, sig)
 				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
+			ensure!(addr == addr_expected, Error::<T>::UnexpectedAddress);
 
 			let index = index as usize;
 			let mut addrs = Self::eth_addresses(&account);
@@ -153,7 +158,7 @@ decl_module! {
 			pk[0] = 4;
 			pk[1..65].copy_from_slice(&pk_no_prefix);
 
-			let addr = util_btc::btc_addr_from_pk_uncompressed(pk);
+			let addr = btc::legacy::btc_addr_from_pk_uncompressed(pk);
 
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);

@@ -14,3 +14,7 @@ Cargo.lock
 
 # vim temp files
 *.swp
+tags
+
+# vscode configs
+.vscode/
