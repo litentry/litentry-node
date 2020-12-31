@@ -130,12 +130,20 @@ impl fmt::Debug for TokenInfo {
 
 /// URL mod to define request data structure
 mod urls {
+	use codec::{Encode, Decode};
 	/// Asset type
+	#[derive(Encode, Decode, Clone, Debug, PartialEq)]
 	pub enum BlockChainType {
+		/// invalid
+		INVALID,
 		/// eth token
 		ETH,
 		/// bitcoin
 		BTC,
+	}
+
+	impl Default for BlockChainType {
+		fn default() -> Self {BlockChainType::INVALID}
 	}
 
 	/// Http Get URL structure
@@ -192,6 +200,15 @@ pub mod crypto {
 	
 }
 
+
+/// Response stored on chain
+#[derive(Encode, Decode, Default)]
+struct QueryKey<AccountId> {
+	/// Response vector for several Ethreum account
+	account: AccountId,
+	blockChainType: urls::BlockChainType,
+}
+
 pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTransaction<Call<Self>> {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Call: From<Call<Self>>;
@@ -208,6 +225,13 @@ decl_storage! {
 		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u128, u128);
 		/// Map AccountId
 		LastCommitBlockNumber get(fn last_commit_block_number): map hasher(blake2_128_concat) T::AccountId => T::BlockNumber;
+<<<<<<< HEAD
+=======
+		/// Offchain worker index
+		OffchainWorkerIndex get(fn offchain_worker_index): map hasher(blake2_128_concat) T::AccountId => u64;
+		/// Result from offchain worker
+		CommitAccountBalance get(fn commit_account_balance): double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) QueryKey<T::AccountId> => u128;
+>>>>>>> add signed tx support.
 	}
 }
 
@@ -293,9 +317,17 @@ decl_module! {
 
 		// Record the balance on chain
 		#[weight = 10_000]
+<<<<<<< HEAD
 		fn submit_number_signed(origin, block: u64)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
+=======
+		fn submit_number_signed(origin, account: T::AccountId, blockChainType: urls::BlockChainType, balance: u128)-> dispatch::DispatchResult {
+			// Ensuring this is an unsigned tx
+			let sender = ensure_signed(origin)?;
+
+			CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, blockChainType}, balance);
+>>>>>>> add signed tx support.
 
 			Ok(())
 		}
@@ -455,6 +487,7 @@ impl<T: Trait> Module<T> {
 		//   - `None`: no account is available for sending transaction
 		//   - `Some((account, Ok(())))`: transaction is successfully sent
 		//   - `Some((account, Err(())))`: error occured when sending the transaction
+<<<<<<< HEAD
 		let result = signer.send_signed_transaction(|_acct|
 			// This is the on-chain function
 			Call::submit_number_signed(number)
@@ -473,6 +506,27 @@ impl<T: Trait> Module<T> {
 		// The case of `None`: no account is available for sending
 		debug::error!("No local account available");
 		Err(<Error<T>>::NoLocalAcctForSigning)
+=======
+		//let result = signer.send_signed_transaction(|_acct|
+			// This is the on-chain function
+		//	Call::submit_number_signed(number)
+		//);
+
+		// Display error if the signed tx fails.
+		// if let Some((acc, res)) = result {
+		// 	if res.is_err() {
+		// 		debug::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
+		// 		return Err(<Error<T>>::OffchainSignedTxError);
+		// 	}
+			// Transaction is sent successfully
+		// 	return Ok(());
+		// }
+
+		// The case of `None`: no account is available for sending
+		// debug::error!("No local account available");
+		// Err(<Error<T>>::NoLocalAcctForSigning)
+		Ok(())
+>>>>>>> add signed tx support.
 	}
 
 	// Generic function to fetch balance for specific link type
