@@ -146,6 +146,30 @@ mod urls {
 		fn default() -> Self {BlockChainType::INVALID}
 	}
 
+	/// Eth source enum
+	#[derive(Encode, Decode, Clone, Debug, PartialEq)]
+	pub enum DataSource {
+		/// invalid
+		INVALID,
+		/// etherscan
+		ETHERSCAN,
+		/// infura
+		INFURA,
+		/// blockchain
+		BLOCKCHAIN,
+	}
+
+	impl Default for DataSource {
+		fn default() -> Self {DataSource::INVALID}
+	}
+
+	/// Task list, each validator choose one task 
+	const TASKLIST: [(BlockChainType, DataSource); 3] = [
+		(BlockChainType::ETH, DataSource::ETHERSCAN),
+		(BlockChainType::ETH, DataSource::INFURA),
+		(BlockChainType::BTC, DataSource::BLOCKCHAIN),
+	];
+
 	/// Http Get URL structure
 	pub struct HttpGet<'a> {
 		pub blockchain: BlockChainType,
@@ -196,10 +220,7 @@ pub mod crypto {
 		type GenericSignature = sp_core::sr25519::Signature;
 		type GenericPublic = sp_core::sr25519::Public;
 	}
-
-	
 }
-
 
 /// Response stored on chain
 #[derive(Encode, Decode, Default)]
@@ -225,13 +246,9 @@ decl_storage! {
 		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u128, u128);
 		/// Map AccountId
 		LastCommitBlockNumber get(fn last_commit_block_number): map hasher(blake2_128_concat) T::AccountId => T::BlockNumber;
-<<<<<<< HEAD
-=======
-		/// Offchain worker index
-		OffchainWorkerIndex get(fn offchain_worker_index): map hasher(blake2_128_concat) T::AccountId => u64;
-		/// Result from offchain worker
 		CommitAccountBalance get(fn commit_account_balance): double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) QueryKey<T::AccountId> => u128;
->>>>>>> add signed tx support.
+		
+		Test get(fn test): map hasher(blake2_128_concat) T::AccountId => u128;
 	}
 }
 
@@ -317,23 +334,54 @@ decl_module! {
 
 		// Record the balance on chain
 		#[weight = 10_000]
-<<<<<<< HEAD
-		fn submit_number_signed(origin, block: u64)-> dispatch::DispatchResult {
+		fn submit_number_signed_2(origin, balance: u128)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
-			ensure_none(origin)?;
-=======
+			let sender = ensure_signed(origin)?;
+
+			Test::<T>::insert(&sender, balance);
+
+			Ok(())
+		}
+
+		// Record the balance on chain
+		#[weight = 10_000]
 		fn submit_number_signed(origin, account: T::AccountId, blockChainType: urls::BlockChainType, balance: u128)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			let sender = ensure_signed(origin)?;
 
 			CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, blockChainType}, balance);
->>>>>>> add signed tx support.
 
 			Ok(())
 		}
 
 		// Trigger by offchain framework in each block
 		fn offchain_worker(block: T::BlockNumber) {
+			const TRANSACTION_TYPES: usize = 4;
+			let result = match block.try_into()
+				.map_or(TRANSACTION_TYPES, |bn| bn % TRANSACTION_TYPES)
+			{
+				1 => Self::offchain_signed_tx(block),
+				3 => {
+					// Record the account in local storage
+					let account = StorageValueRef::persistent(b"offchain-worker::account");
+					// account.set(&acc.id);
+
+					match account.get::<T::AccountId>() {
+						Some(Some(info)) => {
+							debug::info!("Offchain Worker end successfully. {:?} ", <Test<T>>::get(info));
+						},
+						_ => {
+							debug::info!("Offchain Worker to get token from local server.");
+						},
+					};
+					Ok(())
+
+				},
+				_ => Ok(())
+			};
+			
+			return ;
+
 			// Get the all accounts who ask for asset claims
 			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
 
@@ -480,17 +528,21 @@ impl<T: Trait> Module<T> {
 		//   ref: https://substrate.dev/rustdocs/v2.0.0/frame_system/offchain/struct.Signer.html
 		let signer = Signer::<T, T::AuthorityId>::any_account();
 
+		// let tmp_account: T::AccountId = Default::default();
+		// signer.for_any(|account| account == tmp_account);
+
 		// Translating the current block number to number and submit it on-chain
 		let number: u64 = block_number.try_into().unwrap_or(0) as u64;
+
+		// <Test<T>>::insert(signer, block_number);
 
 		// `result` is in the type of `Option<(Account<T>, Result<(), ()>)>`. It is:
 		//   - `None`: no account is available for sending transaction
 		//   - `Some((account, Ok(())))`: transaction is successfully sent
 		//   - `Some((account, Err(())))`: error occured when sending the transaction
-<<<<<<< HEAD
 		let result = signer.send_signed_transaction(|_acct|
 			// This is the on-chain function
-			Call::submit_number_signed(number)
+			Call::submit_number_signed_2(12345)
 		);
 
 		// Display error if the signed tx fails.
@@ -498,35 +550,22 @@ impl<T: Trait> Module<T> {
 			if res.is_err() {
 				debug::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
 				return Err(<Error<T>>::OffchainSignedTxError);
+			} else {
+				debug::error!("successful: offchain_signed_tx: tx sent: {:?} index is {:?}", acc.id, acc.index);
 			}
+
+			// Record the account in local storage
+			let account = StorageValueRef::persistent(b"offchain-worker::account");
+			account.set(&acc.id);
+
 			// Transaction is sent successfully
 			return Ok(());
 		}
 
 		// The case of `None`: no account is available for sending
 		debug::error!("No local account available");
-		Err(<Error<T>>::NoLocalAcctForSigning)
-=======
-		//let result = signer.send_signed_transaction(|_acct|
-			// This is the on-chain function
-		//	Call::submit_number_signed(number)
-		//);
-
-		// Display error if the signed tx fails.
-		// if let Some((acc, res)) = result {
-		// 	if res.is_err() {
-		// 		debug::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
-		// 		return Err(<Error<T>>::OffchainSignedTxError);
-		// 	}
-			// Transaction is sent successfully
-		// 	return Ok(());
-		// }
-
-		// The case of `None`: no account is available for sending
-		// debug::error!("No local account available");
 		// Err(<Error<T>>::NoLocalAcctForSigning)
 		Ok(())
->>>>>>> add signed tx support.
 	}
 
 	// Generic function to fetch balance for specific link type

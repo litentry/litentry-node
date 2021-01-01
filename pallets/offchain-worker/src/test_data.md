@@ -43,3 +43,29 @@ v = 0
 0x001db22bfeb133761132194c1c4688194dd58fc6373672a95d
 address 1MnqFoXqLWDGByG94fvvvWAPWE6tEUMQET
 
+
+## Insert key off-chain worker to sign tx
+### Generate a new account
+bash-5.0$ subkey generate
+
+Secret phrase `loop high amazing chat tennis auto denial attend type quit liquid tonight` is account:
+  Secret seed:      0xad9e7d8233eff5b32ebdf1cfd6d2007f0bfa7c73f7d2d7e60f95dbd642a8af54
+  Public key (hex): 0x8c35b97c56099cf3b5c631d1f296abbb11289857e74a8f60936290080d56da6d
+  Account ID:       0x8c35b97c56099cf3b5c631d1f296abbb11289857e74a8f60936290080d56da6d
+  SS58 Address:     5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX
+
+### Submit a new key via RPC
+$ curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d \
+  '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"author_insertKey",
+    "params": [
+      "ocw!",
+      "loop high amazing chat tennis auto denial attend type quit liquid tonight",
+      "0x8c35b97c56099cf3b5c631d1f296abbb11289857e74a8f60936290080d56da6d"
+    ]
+  }'
+
+### transfer token from alice to 5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX
+
