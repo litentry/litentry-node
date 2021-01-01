@@ -9,7 +9,7 @@ const LOCAL_URL: ([u8; 4], u16) = ([127, 0, 0, 1], 4000);
 
 fn read_token() -> String {
     let keys: Vec<&str> = vec![
-        "ethscan",
+        "etherscan",
         "infura",
         "blockchain",
     ];
