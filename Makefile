@@ -11,6 +11,8 @@ offchain-worker:
 	cargo build --package $(call pkgid, pallet-offchain-worker)
 account-linker:
 	cargo build --package $(call pkgid, pallet-account-linker)
+litentry-token-server:
+	cargo build --package $(call pkgid, litentry-token-server)
 
 test-node:
 	cargo test --package $(call pkgid, litentry-node)
@@ -20,6 +22,8 @@ test-account-linker:
 	cargo test --package $(call pkgid, pallet-account-linker)
 test-offchain-worker:
 	cargo test --package $(call pkgid, pallet-offchain-worker)
+test-litentry-token-server:
+	cargo test --package $(call pkgid, litentry-token-server)
 
 test:
 	cargo test
