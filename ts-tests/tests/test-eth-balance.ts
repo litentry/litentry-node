@@ -93,6 +93,10 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
   // Convert ethereum address to bytes array
   let ethAddressBytes = web3.utils.hexToBytes(web3.eth.accounts.privateKeyToAccount(privateKey).address);
 
+  console.log(`r is ${signedMsg.r}`);
+  console.log(`s is ${signedMsg.s}`);
+  console.log(`v is ${signedMsg.v}`);
+
   const transaction = api.tx.accountLinkerModule.linkEth(alice.address, 0, ethAddressBytes, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
 
   const link = new Promise<{ block: string }>(async (resolve, reject) => {
@@ -125,10 +129,8 @@ async function check_linking_state(api: ApiPromise, alice: KeyringPair) {
 
 	const linkedEthAddress = (await api.query.accountLinkerModule.ethereumLink(alice.address));
   console.log(`Linked Ethereum addresses of Alice are: ${linkedEthAddress.toString()}`);
-  
-  expect(linkedEthAddress.toString()).to.equal(testEthAddress);
 
-	return;
+	return linkedEthAddress;
 }
 
 
@@ -169,30 +171,9 @@ async function get_assets(api: ApiPromise, alice: KeyringPair) {
 	const assetsBalances = (await api.query.offchainWorkerModule.accountBalance(alice.address));
   console.log(`Linked Ethereum balances of Alice are: ${assetsBalances.toString()}`);
   
-  // TODO fetch real time balance and compare it here
-  expect(assetsBalances.toString()).to.equal(`[0,"0x00000000000000004563918244f40000"]`);
-
-	return;
+	return assetsBalances;
 
 }
-
-//async function main() {
-//	const { api, alice } = await init();
-//
-//	// step 1: Creating Ethereum link from ALICE
-//	const link = await eth_link(api, alice)
-//
-//	// step 2: Retrieving Alice's linked Ethereum accounts
-//	await check_linking_state(api, alice);
-//
-//	// step 3: Claim assets for Alice
-//	await asset_claim(api, alice);
-//
-//	// step 4: Retrieving assets information of Alice
-//	await get_assets(api, alice);
-//}
-//
-//main().catch(console.error).then(() => process.exit(0));
 
 describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
 
@@ -201,7 +182,9 @@ describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
   })
 
   step("Retrieving Alice's linked Ethereum accounts", async function () {
-    await check_linking_state(context.api, context.alice);
+    const ethAddr = await check_linking_state(context.api, context.alice);
+  
+    expect(ethAddr.toString()).to.equal(testEthAddress);
   })
 
   step("Claim assets for Alice", async function () {
@@ -209,7 +192,9 @@ describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
   })
 
   step("Retrieving assets information of Alice", async function () {
-    await get_assets(context.api, context.alice);
+    const balances = await get_assets(context.api, context.alice);
+    // TODO fetch real time balance and compare it here
+    expect(balances.toString()).to.equal(`[0,"0x00000000000000004563918244f40000"]`);
   })
 
 });

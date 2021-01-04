@@ -101,7 +101,10 @@ export async function initApiPromise(wsProvider: WsProvider) {
 }
 
 export function describeLitentry(title: string, specFilename: string, cb: (context: {api: ApiPromise, alice: KeyringPair}) => void, provider?: string) {
-	describe(title, () => {
+	describe(title, function() {
+    // Set timeout to 90 seconds
+    this.timeout(90000);
+
     let binary: ChildProcess;
     let context: {api: ApiPromise, alice: KeyringPair} = { api:  {} as ApiPromise, alice: {} as KeyringPair};
 		// Making sure the Litentry node has started
@@ -116,7 +119,9 @@ export function describeLitentry(title: string, specFilename: string, cb: (conte
 
 		after(async function () {
 			//console.log(`\x1b[31m Killing RPC\x1b[0m`);
-			binary.kill();
+      binary.kill();
+      //context = { api:  {} as ApiPromise, alice: {} as KeyringPair};
+      context.api.disconnect();
     });
     
     cb(context);
