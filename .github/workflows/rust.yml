@@ -1,0 +1,33 @@
+name: Rust
+
+on:
+  push:
+    branches: [ develop, integration-test, github-actions ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/cargo@v1.0.1
+      with:
+       toolchain: nightly-2020-10-06
+    - uses: actions/setup-node@v2.1.4
+    - name: Prepare
+      run: rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-06
+    - name: Build
+      run: cargo build
+    - name: Run unit tests
+      run: cargo test --verbose
+    - name: Run integration test
+      run: |
+        cd ts-tests
+        npm install
+        npm test
