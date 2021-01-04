@@ -18,10 +18,10 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions-rs/cargo@v1.0.1
       with:
-       toolchain: nightly-2020-10-06
+       toolchain: nightly
     - uses: actions/setup-node@v2.1.4
     - name: Prepare
-      run: rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-06
+      run: rustup target add wasm32-unknown-unknown --toolchain nightly
     - name: Build
       run: cargo build
     - name: Run unit tests
