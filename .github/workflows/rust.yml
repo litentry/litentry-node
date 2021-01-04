@@ -31,4 +31,5 @@ jobs:
       run: |
         cd ts-tests
         npm install
+        npm install --only=dev
         npm test
