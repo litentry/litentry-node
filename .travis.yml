@@ -1,19 +1,30 @@
 branches:
   only:
     - develop
+    - integration-test
 
-language: rust
-rust:
-  - nightly-2020-10-06
+matrix:
+  include:
+    - language: rust
+      rust:
+        - nightly-2020-10-06
 
-# cache:
-#   - cargo
+      # cache:
+      #   - cargo
 
-before_script:
-  - rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-06
-  - rustup component add rustfmt --toolchain=nightly-2020-10-06
-  - rustup component add clippy --toolchain=nightly-2020-10-06 || cargo +nightly-2020-10-06 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
-script:
-  - cargo build
-  # - cargo clippy --all-targets --all-features -- -D warnings -A clippy::large-enum-variant -A clippy::try-err -A clippy::redundant-field-names -A clippy::type-complexity -A clippy::or-fun-call -A clippy::redundant-clone
-  - cargo test
+      before_script:
+        - rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-06
+        - rustup component add rustfmt --toolchain=nightly-2020-10-06
+        - rustup component add clippy --toolchain=nightly-2020-10-06 || cargo +nightly-2020-10-06 install --git https://github.com/rust-lang/rust-clippy/ --force clippy
+      script:
+        - cargo build
+        # - cargo clippy --all-targets --all-features -- -D warnings -A clippy::large-enum-variant -A clippy::try-err -A clippy::redundant-field-names -A clippy::type-complexity -A clippy::or-fun-call -A clippy::redundant-clone
+        - cargo test
+    - language: node_js
+      node_js: 
+        - 14.15
+      before_script:
+        - cd ts-tests
+        - npm install
+      script:
+        - npm test
