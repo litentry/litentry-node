@@ -1,4 +1,3 @@
-// TODO: delete this
 //! Based on https://github.com/debris/base58/blob/master/src/lib.rs
 //! works only up to 128 bytes
 use sp_std::prelude::*;

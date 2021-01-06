@@ -77,13 +77,15 @@ fn test_btc_link() {
 		let _ = AccountLinker::link_btc(Origin::signed(account.clone()),
 									account.clone(),
 									0,
+									Vec::new(), // TODO not using tmp value
 									block_number,
 									r,
 									s,
 									v.to_i32() as u8);
 
+		let addr_stored = String::from_utf8(AccountLinker::btc_addresses(&account)[0].clone()).unwrap();
 
-		assert_eq!(AccountLinker::btc_addresses(&account)[0].to_base58(), address.to_string());
+		assert_eq!(addr_stored, address.to_string());
 
 	});
 }

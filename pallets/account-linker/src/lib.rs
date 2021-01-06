@@ -5,6 +5,7 @@ use sp_std::prelude::*;
 use sp_io::crypto::secp256k1_ecdsa_recover;
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, ensure};
 use frame_system::{ensure_signed};
+use btc::base58::ToBase58;
 
 #[cfg(test)]
 mod mock;
@@ -25,7 +26,7 @@ pub trait Trait: frame_system::Trait {
 decl_storage! {
 	trait Store for Module<T: Trait> as TemplateModule {
 		pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
-		pub BitcoinLink get(fn btc_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 25]>;
+		pub BitcoinLink get(fn btc_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<Vec<u8>>;
 	}
 }
 
@@ -159,7 +160,7 @@ decl_module! {
 			pk[0] = 4;
 			pk[1..65].copy_from_slice(&pk_no_prefix);
 
-			let addr = btc::legacy::btc_addr_from_pk_uncompressed(pk);
+			let addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
 
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);
