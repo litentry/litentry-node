@@ -120,6 +120,7 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			index: u32,
+			addr_expected: Vec<u8>,
 			expiring_block_number: T::BlockNumber,
 			r: [u8; 32],
 			s: [u8; 32],
