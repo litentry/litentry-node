@@ -38,8 +38,6 @@ use alt_serde::{Deserialize, Deserializer};
 #[cfg(test)]
 mod tests;
 
-mod utils;
-
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 const TOKEN_SERVER_URL: &str = "http://127.0.0.1:4000";
 
