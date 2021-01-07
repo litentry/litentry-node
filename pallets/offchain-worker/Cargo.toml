@@ -21,6 +21,7 @@ alt_serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false, git = "https://github.com/Xanewok/json", branch = "no-std", features = ["alloc"] }
 
 parking_lot = "0.10.0"
+syn = "=1.0.57"
 sp-runtime = { default-features = false, version = '2.0.0' }
 frame-support = { default-features = false, version = '2.0.0' }
 frame-system = { default-features = false, version = '2.0.0' }
