@@ -6,6 +6,7 @@ import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from '@polkadot/keyring/types';
 
 export const BINARY_PATH = `../target/debug/litentry-node`;
+export const APIKEY_SERVER_PATH = `../target/debug/litentry-token-server`;
 export const SPAWNING_TIME = 30000;
 
 // Provider is set to localhost for development
@@ -13,6 +14,38 @@ const wsProvider = new WsProvider("ws://localhost:9944");
 
 // Keyring needed to sign using Alice account
 const keyring = new Keyring({ type: 'sr25519' });
+
+export async function launchAPITokenServer(): Promise<{ apikey_server: ChildProcess }>  {
+  
+  const apikey_server = spawn(APIKEY_SERVER_PATH, [], {
+    env: {
+      etherscan: "RF71W4Z2RDA7XQD6EN19NGB66C2QD9UPHB",
+      infura: "aa0a6af5f94549928307febe80612a2a",
+      blockchain: ""
+    }
+  });
+
+	apikey_server.on("error", (err) => {
+		if ((err as any).errno == "ENOENT") {
+			console.error(
+				`\x1b[31mMissing litentry-token-server binary (${APIKEY_SERVER_PATH}).\nPlease compile the litentry project:\ncargo build\x1b[0m`
+			);
+		} else {
+			console.error(err);
+		}
+		process.exit(1);
+  });
+
+  apikey_server.stdout.on('data', (data) => {
+    console.log('Litentry Token Server Output: ' + data.toString());
+  });
+
+  apikey_server.stderr.on('data', (data) => {
+    console.log('Litentry Token Server Output: ' + data.toString());
+  });
+
+  return { apikey_server };
+}
 
 export async function launchLitentryNode(specFilename: string, provider?: string): Promise<{ binary: ChildProcess }> {
 
@@ -32,7 +65,15 @@ export async function launchLitentryNode(specFilename: string, provider?: string
 			console.error(err);
 		}
 		process.exit(1);
-	});
+  });
+  
+  binary.stdout.on('data', (data) => {
+    console.log('Litentry Node Output: ' + data.toString());
+  });
+
+  binary.stderr.on('data', (data) => {
+    console.log('Litentry Node Output: ' + data.toString());
+  });
 
 //	await new Promise((resolve) => {
 //		const timer = setTimeout(() => {
@@ -105,12 +146,15 @@ export function describeLitentry(title: string, specFilename: string, cb: (conte
     // Set timeout to 90 seconds
     this.timeout(90000);
 
+    let tokenServer: ChildProcess;
     let binary: ChildProcess;
     let context: {api: ApiPromise, alice: KeyringPair} = { api:  {} as ApiPromise, alice: {} as KeyringPair};
 		// Making sure the Litentry node has started
 		before("Starting Litentry Test Node", async function () {
-			//this.timeout(SPAWNING_TIME);
-			const initNode = await launchLitentryNode(specFilename, provider);
+      //this.timeout(SPAWNING_TIME);
+      const initTokenServer = await launchAPITokenServer();
+      const initNode = await launchLitentryNode(specFilename, provider);
+      tokenServer = initTokenServer.apikey_server;
       binary = initNode.binary;
       const initApi = await initApiPromise(wsProvider);
       context.api = initApi.api;
@@ -118,9 +162,9 @@ export function describeLitentry(title: string, specFilename: string, cb: (conte
 		});
 
 		after(async function () {
-			//console.log(`\x1b[31m Killing RPC\x1b[0m`);
+      //console.log(`\x1b[31m Killing RPC\x1b[0m`);
+      tokenServer.kill()
       binary.kill();
-      //context = { api:  {} as ApiPromise, alice: {} as KeyringPair};
       context.api.disconnect();
     });
     
