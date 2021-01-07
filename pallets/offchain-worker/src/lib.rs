@@ -42,6 +42,7 @@ mod utils;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 const TOKEN_SERVER_URL: &str = "http://127.0.0.1:4000";
+const DATA_SOURCE: [urls::DataSource; 3] = [urls::DataSource::ETHERSCAN, urls::DataSource::INFURA, urls::DataSource::BLOCKCHAIN];
 
 /// Store all API tokens for offchain worker to send request to website
 #[serde(crate = "alt_serde")]
@@ -243,7 +244,7 @@ decl_storage! {
 		/// Record the accounts send claims in latest block
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
 		/// Record account's btc and ethereum balance
-		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (u128, u128);
+		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (Option<u128>, Option<u128>);
 		/// Map AccountId
 		LastCommitBlockNumber get(fn last_commit_block_number): map hasher(blake2_128_concat) T::AccountId => T::BlockNumber;
 
@@ -253,7 +254,7 @@ decl_storage! {
 		/// 
 		AccountIndex get(fn account_index): map hasher(blake2_128_concat) T::AccountId => Option<u32>;
 		/// 
-		CommittedAccountNumber get(fn committed_account_number) u32;
+		CommittedAccountNumber get(fn committed_account_number): u32;
 	}
 }
 
@@ -261,7 +262,7 @@ decl_event!(
 	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId,
 					BlockNumber = <T as frame_system::Trait>::BlockNumber, {
 		/// Event for account and its ethereum balance
-		BalanceGot(AccountId, BlockNumber, u128, u128),
+		BalanceGot(AccountId, BlockNumber, Option<u128>, Option<u128>),
 	}
 );
 
@@ -298,7 +299,7 @@ decl_module! {
 			let account = ensure_signed(origin)?;
 
 			// If the same claim not processed yet
-			ensure!(!ClaimAccountSet::<T>::contains_key(&account), Error::<T>::AccountAlreadyInClaimlist);
+			ensure!(!<ClaimAccountSet<T>>::contains_key(&account), Error::<T>::AccountAlreadyInClaimlist);
 
 			<ClaimAccountSet<T>>::insert(&account, ());
 
@@ -322,8 +323,8 @@ decl_module! {
 			origin,
 			account: T::AccountId,
 			block: T::BlockNumber,
-			btc_balance: u128,
-			eth_balance: u128,
+			btc_balance: Option<u128>,
+			eth_balance: Option<u128>,
 		) -> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
@@ -339,22 +340,13 @@ decl_module! {
 
 		// Record the balance on chain
 		#[weight = 10_000]
-		fn submit_number_signed_2(origin, balance: u128)-> dispatch::DispatchResult {
+		// fn submit_number_signed(origin, account: T::AccountId, blockChainType: urls::BlockChainType, balance: u128)-> dispatch::DispatchResult {
+
+		fn submit_number_signed(origin, balance: u128)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			let sender = ensure_signed(origin)?;
 
-			Test::<T>::insert(&sender, balance);
-
-			Ok(())
-		}
-
-		// Record the balance on chain
-		#[weight = 10_000]
-		fn submit_number_signed(origin, account: T::AccountId, blockChainType: urls::BlockChainType, balance: u128)-> dispatch::DispatchResult {
-			// Ensuring this is an unsigned tx
-			let sender = ensure_signed(origin)?;
-
-			CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, blockChainType}, balance);
+			// CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, blockChainType}, balance);
 
 			Ok(())
 		}
@@ -363,7 +355,7 @@ decl_module! {
 		fn offchain_worker(block_number: T::BlockNumber) {
 			const TRANSACTION_TYPES: usize = 10;
 			// let block_number_usize: usize = block_number.try_into();
-			let result = match block_number.try_into()
+			match block_number.try_into()
 				.map_or(TRANSACTION_TYPES, |bn| bn % TRANSACTION_TYPES)
 			{
 				// The first block will trigger all offchain worker and clean the claims
@@ -376,29 +368,24 @@ decl_module! {
 
 					match account.get::<T::AccountId>() {
 						Some(Some(info)) => {
-							debug::info!("Offchain Worker end successfully. {:?} ", <Test<T>>::get(info));
+							debug::info!("Offchain Worker end successfully.");
 						},
 						_ => {
 							debug::info!("Offchain Worker to get token from local server.");
 						},
-					};
-					Ok(())
+					}
 
 				},
 				// Block 1 to block 8 reserved for offchain worker to query and submit result
-				_ => Ok(())
-			};
-			
-			return ;
-
-			
+				_ => {},
+			};			
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
 	// Start new round of offchain worker
-	fn start(block_number: T::BlockNumber) -> {
+	fn start(block_number: T::BlockNumber) {
 		let local_token = StorageValueRef::persistent(b"offchain-worker::token");
 		
 		match local_token.get::<TokenInfo>() {
@@ -408,7 +395,7 @@ impl<T: Trait> Module<T> {
 
 				if accounts.len() > 0 {
 					// Try to remove claims via tx
-					let call = Call::clear_claim(block);
+					let call = Call::clear_claim(block_number);
 					let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 					.map_err(|_| {
 						debug::error!("Failed in offchain_unsigned_tx");
@@ -416,10 +403,8 @@ impl<T: Trait> Module<T> {
 					});
 
 					// Update balance after query
-					match Self::update(&accounts, block_number, &token) {
-						Ok(()) => debug::info!("Offchain Worker end successfully."),
-						Err(err) => debug::info!("Offchain Worker end with err {:?}.", err),
-					}
+					Self::query(&accounts, block_number, &token);
+					debug::info!("Offchain Worker end successfully.");
 				}
 			},
 			_ => {
@@ -430,13 +415,41 @@ impl<T: Trait> Module<T> {
 		};
 	}
 
-
-
-	fn query(account_vec: &Vec<T::AccountId>, block: T::BlockNumber, info: &TokenInfo) {
+	fn query(account_vec: &Vec<T::AccountId>, block_number: T::BlockNumber, info: &TokenInfo) {
 		let offchain_worker_account = StorageValueRef::persistent(b"offchain-worker::account");
 
-		match offchain_worker_account.get::<AccountId>() {
+		match offchain_worker_account.get::<T::AccountId>() {
 			Some(Some(account)) => {
+				let ocw_account_index = Self::account_index(&account);
+				let ocw_account_index = match ocw_account_index {
+					Some(index_in_map) => index_in_map,
+					_ => account_vec.len() as u32,
+				};
+
+				let total_task = account_vec.len() * DATA_SOURCE.len();
+				let mut task_index = 0_u32;
+
+				// loop for each account
+				for (index, account) in account_vec.iter().enumerate() {
+					// loop for each source
+					for (_, source) in DATA_SOURCE.iter().enumerate() {
+
+						let balance = match source {
+							urls::DataSource::ETHERSCAN => {
+								Self::get_balance_from_etherscan(account, block_number, info)
+							},
+							urls::DataSource::INFURA => {
+								Self::get_balance_from_etherscan(account, block_number, info)
+							},
+							urls::DataSource::BLOCKCHAIN => {
+								Self::get_balance_from_etherscan(account, block_number, info)
+							},
+							_ => None,
+						};
+
+					}
+				}
+
 			},
 			_ => {
 
@@ -444,110 +457,179 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	// Fetch all claimed accounts
-	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber, info: &TokenInfo) ->  Result<(), Error<T>> {
-		for (_, account) in account_vec.iter().enumerate() {
-			// Get balance from etherscan
-			let eth_balance = {
-				if info.etherscan.len() == 0 {
-					Err(Error::<T>::InvalidNumber)
-				} else {
-					match core::str::from_utf8(&info.etherscan) {
-						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
-							urls::HttpRequest::GET(urls::HttpGet {
-								blockchain: urls::BlockChainType::ETH,
-								prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
-								delimiter: ",0x",
-								postfix: "&tag=latest&apikey=",
-								api_token: token,
-								}), 
-							&Self::parse_etherscan_balances),
-						Err(_) => Err(Error::<T>::InvalidNumber),
-					}
-				}
-			};
-			
-			// Get balance from blockchain.info
-			let btc_balance = {
-				if info.blockchain.len() == 0 {
-					Err(Error::<T>::InvalidNumber)
-				} else {
-					match core::str::from_utf8(&info.blockchain) {
-						Ok(token) => Self::fetch_balances(Vec::new(), 
-							urls::HttpRequest::GET(urls::HttpGet {
-								blockchain: urls::BlockChainType::BTC,
-								prefix: "https://blockchain.info/balance?active=",
-								delimiter: "%7C",
-								postfix: "",
-								api_token: token,
-								}), 
-							&Self::parse_blockchain_info_balances),
-						Err(_) => Err(Error::<T>::InvalidNumber),
-					}
-				}
-			};
+	fn get_balance_from_etherscan(account: &T::AccountId, block: T::BlockNumber, info: &TokenInfo) -> Option<u128> {
+		if info.etherscan.len() == 0 {
+			None
+		} else {
+			match core::str::from_utf8(&info.etherscan) {
+				Ok(token) => {
+					let get = urls::HttpGet {
+						blockchain: urls::BlockChainType::ETH,
+						prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
+						delimiter: ",0x",
+						postfix: "&tag=latest&apikey=",
+						api_token: token,
+					};
 
-			// Get the balance from Infura
-			let etc_balance_infura = {
-				if info.infura.len() == 0 {
-					Err(Error::<T>::InvalidNumber)
-				} else {
-					match core::str::from_utf8(&info.infura) {
-						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
-							urls::HttpRequest::POST(urls::HttpPost {
-								url_main: "https://ropsten.infura.io/v3/",
-								blockchain: urls::BlockChainType::ETH,
-								prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-								delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
-								postfix: r#"","latest"]}]"#,
-								api_token: token,
-								}), 
-							&Self::parse_infura_balances),
-						Err(_) => Err(Error::<T>::InvalidNumber),
-					}
-				}
-			};
-
-			debug::info!("Offchain Worker etherscan balance got is {:?}", eth_balance);
-
-			// Store balance on chain after offchain worker query done
-			match (btc_balance, eth_balance) {
-				(Ok(btc), Ok(eth)) => {
-					let call = Call::record_balance(account.clone(), block, btc, eth);
-					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-					if result.is_err() {
-						debug::info!("Offchain Worker failed to submit record balance transaction");
-					}
-					// TODO Test code
-					if eth == etc_balance_infura? {
-						debug::info!("Infura returned balance equals to etherscan returned balance.");
-					} else {
-						debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
-					}
+					Self::fetch_balances(
+						<account_linker::EthereumLink<T>>::get(account), 
+						urls::HttpRequest::GET(get),
+						&Self::parse_etherscan_balances).ok()
 				},
-				(Ok(btc), _) => {
-					let call = Call::record_balance(account.clone(), block, btc, 0_u128);
-					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-					if result.is_err() {
-						debug::info!("Offchain Worker failed to submit record balance transaction");
-					}
-				},
-				(_, Ok(eth)) => {
-					let call = Call::record_balance(account.clone(), block, 0_u128, eth);
-					let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-					if result.is_err() {
-						debug::info!("Offchain Worker failed to submit record balance transaction");
-					}
-					// TODO Test code
-					if eth == etc_balance_infura? {
-						debug::info!("Infura returned balance equals to etherscan returned balance.");
-					} else {
-						debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
-					}
-				},
-				_ => (),
+				Err(_) => None,
 			}
 		}
+	}
+
+	fn get_balance_from_infura(account: &T::AccountId, block: T::BlockNumber, info: &TokenInfo) -> Option<u128> {
+		
+		if info.infura.len() == 0 {
+			None
+		} else {
+			match core::str::from_utf8(&info.infura) {
+				Ok(token) => {
+					let post = urls::HttpPost {
+						url_main: "https://ropsten.infura.io/v3/",
+						blockchain: urls::BlockChainType::ETH,
+						prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+						delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+						postfix: r#"","latest"]}]"#,
+						api_token: token,
+					};
+					Self::fetch_balances(
+						<account_linker::EthereumLink<T>>::get(account),
+						urls::HttpRequest::POST(post),
+						&Self::parse_blockchain_info_balances).ok()
+				},
+				Err(_) => None,
+			}
+		}
+	}
+
+	fn get_balance_from_blockchain_info(account: &T::AccountId, block: T::BlockNumber, info: &TokenInfo) -> Option<u128> {
+		if info.blockchain.len() == 0 {
+			None
+		} else {
+			match core::str::from_utf8(&info.blockchain) {
+				Ok(token) => {
+					let get = urls::HttpGet {
+							blockchain: urls::BlockChainType::BTC,
+							prefix: "https://blockchain.info/balance?active=",
+							delimiter: "%7C",
+							postfix: "",
+							api_token: token,
+					};
+					Self::fetch_balances(Vec::new(), 
+						urls::HttpRequest::GET(get), 
+						&Self::parse_blockchain_info_balances).ok()
+				},
+				Err(_) => None,
+			}
+		}
+	}
+
+	// Fetch all claimed accounts
+	fn update(account_vec: Vec<T::AccountId>, block: T::BlockNumber, info: &TokenInfo) ->  Result<(), Error<T>> {
+		//for (_, account) in account_vec.iter().enumerate() {
+			// Get balance from etherscan
+			// let eth_balance = {
+			// 	if info.etherscan.len() == 0 {
+			// 		Err(Error::<T>::InvalidNumber)
+			// 	} else {
+			// 		match core::str::from_utf8(&info.etherscan) {
+			// 			Ok(token) => {
+			// 				match  Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
+			// 				urls::HttpRequest::GET(urls::HttpGet {
+			// 					blockchain: urls::BlockChainType::ETH,
+			// 					prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
+			// 					delimiter: ",0x",
+			// 					postfix: "&tag=latest&apikey=",
+			// 					api_token: token,
+			// 					}), 
+			// 				&Self::parse_etherscan_balances),
+			// 			Err(_) => Err(Error::<T>::InvalidNumber) 
+			// 		}
+			// 	}
+			// };
+			
+			// Get balance from blockchain.info
+			// let btc_balance = {
+			// 	if info.blockchain.len() == 0 {
+			// 		Err(Error::<T>::InvalidNumber)
+			// 	} else {
+			// 		match core::str::from_utf8(&info.blockchain) {
+			// 			Ok(token) => Self::fetch_balances(Vec::new(), 
+			// 				urls::HttpRequest::GET(urls::HttpGet {
+			// 					blockchain: urls::BlockChainType::BTC,
+			// 					prefix: "https://blockchain.info/balance?active=",
+			// 					delimiter: "%7C",
+			// 					postfix: "",
+			// 					api_token: token,
+			// 					}), 
+			// 				&Self::parse_blockchain_info_balances),
+			// 			Err(_) => Err(Error::<T>::InvalidNumber),
+			// 		}
+			// 	}
+			// };
+
+			// Get the balance from Infura
+			// let etc_balance_infura = Err(Error::<T>::InvalidNumber);
+			// 	} else {
+			// 		match core::str::from_utf8(&info.infura) {
+			// 			Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
+			// 				urls::HttpRequest::POST(urls::HttpPost {
+			// 					url_main: "https://ropsten.infura.io/v3/",
+			// 					blockchain: urls::BlockChainType::ETH,
+			// 					prefix: r#"[{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+			// 					delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
+			// 					postfix: r#"","latest"]}]"#,
+			// 					api_token: token,
+			// 					}),
+			// 			Err(_) => Err(Error::<T>::InvalidNumber),
+			// 		}
+			// 	}
+			// };
+
+			// debug::info!("Offchain Worker etherscan balance got is {:?}", eth_balance);
+
+			// Store balance on chain after offchain worker query done
+		// 	match (btc_balance, eth_balance) {
+		// 		(Ok(btc), Ok(eth)) => {
+		// 			let call = Call::record_balance(account.clone(), block, btc, eth);
+		// 			let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+		// 			if result.is_err() {
+		// 				debug::info!("Offchain Worker failed to submit record balance transaction");
+		// 			}
+		// 			// TODO Test code
+		// 			if eth == etc_balance_infura? {
+		// 				debug::info!("Infura returned balance equals to etherscan returned balance.");
+		// 			} else {
+		// 				debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
+		// 			}
+		// 		},
+		// 		(Ok(btc), _) => {
+		// 			let call = Call::record_balance(account.clone(), block, btc, 0_u128);
+		// 			let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+		// 			if result.is_err() {
+		// 				debug::info!("Offchain Worker failed to submit record balance transaction");
+		// 			}
+		// 		},
+		// 		(_, Ok(eth)) => {
+		// 			let call = Call::record_balance(account.clone(), block, 0_u128, eth);
+		// 			let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+		// 			if result.is_err() {
+		// 				debug::info!("Offchain Worker failed to submit record balance transaction");
+		// 			}
+		// 			// TODO Test code
+		// 			if eth == etc_balance_infura? {
+		// 				debug::info!("Infura returned balance equals to etherscan returned balance.");
+		// 			} else {
+		// 				debug::error!("Infura returned balance does NOT equal to etherscan returned balance!");
+		// 			}
+		// 		},
+		// 		_ => (),
+		// 	}
+		// }
 		Ok(())
 	}
 
@@ -572,7 +654,7 @@ impl<T: Trait> Module<T> {
 		//   - `Some((account, Err(())))`: error occured when sending the transaction
 		let result = signer.send_signed_transaction(|_acct|
 			// This is the on-chain function
-			Call::submit_number_signed_2(12345)
+			Call::submit_number_signed(12345)
 		);
 
 		// Display error if the signed tx fails.
