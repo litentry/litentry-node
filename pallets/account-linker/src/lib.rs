@@ -179,32 +179,6 @@ decl_module! {
 			Ok(())
 
 		}
-
-		#[weight = 1]
-		pub fn test(
-			origin,
-			account: T::AccountId,
-			index: u32,
-			addr: [u8; 20],
-		) -> dispatch::DispatchResult {
-
-			let _ = ensure_signed(origin)?;
-
-			let index = index as usize;
-			let mut addrs = Self::eth_addresses(&account);
-			// NOTE: allow linking `MAX_ETH_LINKS` eth addresses.
-			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) {
-				addrs.push(addr);
-			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
-				addrs[MAX_ETH_LINKS - 1] = addr;
-			} else {
-				addrs[index] = addr;
-			}
-
-			<EthereumLink<T>>::insert(account, addrs);
-
-			Ok(())
-
-		}
+		
 	}
 }
