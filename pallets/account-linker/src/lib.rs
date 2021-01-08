@@ -24,6 +24,11 @@ pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
+enum BTCAddrType {
+	Legacy,
+	Segwit,
+}
+
 decl_storage! {
 	trait Store for Module<T: Trait> as TemplateModule {
 		pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
@@ -135,6 +140,19 @@ decl_module! {
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
 
+			// TODO: we may enlarge this 2
+			if addr_expected.len() < 2 {
+				Err(Error::<T>::LinkRequestExpired)?
+			}
+
+			let addr_type = if &addr_expected[..0] == b"1" {
+				BTCAddrType::Legacy
+			} else if &addr_expected[..1] == b"bc" {
+				BTCAddrType::Segwit
+			} else {
+				Err(Error::<T>::LinkRequestExpired)?
+			};
+
 			let mut bytes = b"Link Litentry: ".encode();
 			let mut account_vec = account.encode();
 			let mut expiring_block_number_vec = expiring_block_number.encode();
@@ -158,21 +176,23 @@ decl_module! {
 
 			let mut addr = Vec::new();
 
-			// // in case legacy
-			// let mut pk = [0u8; 65];
+			match addr_type {
+				BTCAddrType::Legacy => {
+					let mut pk = [0u8; 65];
 
-			// // pk prefix = 4
-			// pk[0] = 4;
-			// pk[1..65].copy_from_slice(&pk_no_prefix);
+					// pk prefix = 4
+					pk[0] = 4;
+					pk[1..65].copy_from_slice(&pk_no_prefix);
 
-			// addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
-
-
-			// in case segwit
-			// some transformation of the pk
-			let pk = pk_no_prefix;
-			let wp = WitnessProgram::from_scriptpubkey(&pk.to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
-			addr = wp.to_address(b"bc".to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
+					addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
+				},
+				BTCAddrType::Segwit => {
+					// some transformation of the pk
+					let pk = pk_no_prefix;
+					let wp = WitnessProgram::from_scriptpubkey(&pk.to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
+					addr = wp.to_address(b"bc".to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
+				}
+			}
 
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);
