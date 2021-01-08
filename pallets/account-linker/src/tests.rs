@@ -4,6 +4,7 @@ use codec::Encode;
 use parity_crypto::Keccak256;
 use parity_crypto::publickey::{Random, Generator, Message, sign, KeyPair};
 use frame_support::dispatch::DispatchError;
+use frame_support::{assert_ok, assert_noop};
 use sp_runtime::AccountId32;
 
 fn generate_msg(account: &AccountId32, block_number: u32) -> Message {
@@ -74,14 +75,16 @@ fn test_btc_link() {
 		r[..32].copy_from_slice(&rs[..32]);
 		s[..32].copy_from_slice(&rs[32..64]);
 
-		let _ = AccountLinker::link_btc(Origin::signed(account.clone()),
-									account.clone(),
-									0,
-									Vec::new(), // TODO not using tmp value
-									block_number,
-									r,
-									s,
-									v.to_i32() as u8);
+		assert_ok!(AccountLinker::link_btc(
+			Origin::signed(account.clone()),
+			account.clone(),
+			0,
+			Vec::new(), // TODO not using tmp value
+			block_number,
+			r,
+			s,
+			v.to_i32() as u8
+		));
 
 		let addr_stored = String::from_utf8(AccountLinker::btc_addresses(&account)[0].clone()).unwrap();
 
@@ -104,17 +107,18 @@ fn test_invalid_block_number() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let result = AccountLinker::link_eth(
-			Origin::signed(account.clone()),
-			account.clone(),
-			0,
-			key_pair.address().to_fixed_bytes(),
-			block_number,
-			r,
-			s,
-			v);
-		assert_eq!(result.is_err(), true);
-		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::LinkRequestExpired)));
+		assert_noop!(
+			AccountLinker::link_eth(
+				Origin::signed(account.clone()),
+				account.clone(),
+				0,
+				key_pair.address().to_fixed_bytes(),
+				block_number,
+				r,
+				s,
+				v),
+			AccountLinkerError::LinkRequestExpired
+		);
 	});
 }
 
@@ -132,17 +136,18 @@ fn test_unexpected_address() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let result = AccountLinker::link_eth(
-			Origin::signed(account.clone()),
-			account.clone(),
-			0,
-			gen.generate().unwrap().address().to_fixed_bytes(),
-			block_number,
-			r,
-			s,
-			v);
-		assert_eq!(result.is_err(), true);
-		assert_eq!(result.err(), Some(DispatchError::from(AccountLinkerError::UnexpectedAddress)));
+		assert_noop!(
+			AccountLinker::link_eth(
+				Origin::signed(account.clone()),
+				account.clone(),
+				0,
+				gen.generate().unwrap().address().to_fixed_bytes(),
+				block_number,
+				r,
+				s,
+				v),
+			AccountLinkerError::UnexpectedAddress
+		);
 	});
 }
 
@@ -165,14 +170,17 @@ fn test_insert_eth_address() {
 
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
-										account.clone(),
-										i as u32,
-										key_pair.address().to_fixed_bytes(),
-										block_number + i as u32,
-										r,
-										s,
-										v);
+			assert_ok!(AccountLinker::link_eth(
+				Origin::signed(account.clone()),
+				account.clone(),
+				i as u32,
+				key_pair.address().to_fixed_bytes(),
+				block_number + i as u32,
+				r,
+				s,
+				v
+			));
+
 			assert_eq!(AccountLinker::eth_addresses(&account).len(), i+1);
 			expected_vec.push(key_pair.address().to_fixed_bytes());
 		}
@@ -194,14 +202,16 @@ fn test_update_eth_address() {
 			let sig = generate_sig(&key_pair, &msg);
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
-										account.clone(),
-										i as u32,
-										key_pair.address().to_fixed_bytes(),
-										block_number + i as u32,
-										r,
-										s,
-										v);
+			assert_ok!(AccountLinker::link_eth(
+				Origin::signed(account.clone()),
+				account.clone(),
+				i as u32,
+				key_pair.address().to_fixed_bytes(),
+				block_number + i as u32,
+				r,
+				s,
+				v
+			));
 		}
 
 		let index: u32 = 2 as u32;
@@ -214,14 +224,17 @@ fn test_update_eth_address() {
 		let sig = generate_sig(&key_pair, &msg);
 		let (r, s, v) = generate_rsv(&sig);
 
-		let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
-									account.clone(),
-									index,
-									key_pair.address().to_fixed_bytes(),
-									block_number,
-									r,
-									s,
-									v);
+		assert_ok!(AccountLinker::link_eth(
+			Origin::signed(account.clone()),
+			account.clone(),
+			index,
+			key_pair.address().to_fixed_bytes(),
+			block_number,
+			r,
+			s,
+			v
+		));
+
 		let updated_addr =  AccountLinker::eth_addresses(&account)[index as usize];
 		assert_ne!(updated_addr, addr_before_update);
 		assert_eq!(updated_addr, key_pair.address().to_fixed_bytes());
@@ -246,14 +259,17 @@ fn test_eth_address_pool_overflow() {
 			let sig = generate_sig(&key_pair, &msg);
 			let (r, s, v) = generate_rsv(&sig);
 
-			let _ = AccountLinker::link_eth(Origin::signed(account.clone()),
-										account.clone(),
-										index as u32,
-										key_pair.address().to_fixed_bytes(),
-										block_number,
-										r,
-										s,
-										v);
+			assert_ok!(AccountLinker::link_eth(
+				Origin::signed(account.clone()),
+				account.clone(),
+				index as u32,
+				key_pair.address().to_fixed_bytes(),
+				block_number,
+				r,
+				s,
+				v
+			));
+
 			if index < MAX_ETH_LINKS {
 				expected_vec.push(key_pair.address().to_fixed_bytes());
 			} else {
