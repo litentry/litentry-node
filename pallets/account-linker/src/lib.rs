@@ -46,6 +46,7 @@ decl_error! {
 		UnexpectedAddress,
 		// Unexpected ethereum message length error
 		UnexpectedEthMsgLength,
+		InvalidBTCAddress,
 	}
 }
 
