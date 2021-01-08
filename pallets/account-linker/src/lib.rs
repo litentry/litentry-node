@@ -6,6 +6,7 @@ use sp_io::crypto::secp256k1_ecdsa_recover;
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, ensure};
 use frame_system::{ensure_signed};
 use btc::base58::ToBase58;
+use btc::witness::WitnessProgram;
 
 #[cfg(test)]
 mod mock;
@@ -155,13 +156,23 @@ decl_module! {
 			let pk_no_prefix = secp256k1_ecdsa_recover(&sig, &msg)
 				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
-			let mut pk = [0u8; 65];
+			let mut addr = Vec::new();
 
-			// pk prefix = 4
-			pk[0] = 4;
-			pk[1..65].copy_from_slice(&pk_no_prefix);
+			// // in case legacy
+			// let mut pk = [0u8; 65];
 
-			let addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
+			// // pk prefix = 4
+			// pk[0] = 4;
+			// pk[1..65].copy_from_slice(&pk_no_prefix);
+
+			// addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
+
+
+			// in case segwit
+			// some transformation of the pk
+			let pk = pk_no_prefix;
+			let wp = WitnessProgram::from_scriptpubkey(&pk.to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
+			addr = wp.to_address(b"bc".to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
 
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);
@@ -179,6 +190,6 @@ decl_module! {
 			Ok(())
 
 		}
-		
+
 	}
 }
