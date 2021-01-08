@@ -3,7 +3,6 @@ use crate::mock::*;
 use codec::Encode;
 use parity_crypto::Keccak256;
 use parity_crypto::publickey::{Random, Generator, Message, sign, KeyPair};
-use frame_support::dispatch::DispatchError;
 use frame_support::{assert_ok, assert_noop};
 use sp_runtime::AccountId32;
 
@@ -42,7 +41,6 @@ fn test_btc_link() {
 		use bitcoin::util::key;
 		use bitcoin::secp256k1::{Secp256k1, Message as BTCMessage};
 		use bitcoin::secp256k1::rand::thread_rng;
-		use base58::ToBase58;
 
 		// Generate random key pair
 		let s = Secp256k1::new();
