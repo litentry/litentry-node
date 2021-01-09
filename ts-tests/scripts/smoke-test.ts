@@ -1,11 +1,21 @@
 import { ApiPromise, WsProvider, Keyring } from "@polkadot/api";
 import { KeyringPair } from '@polkadot/keyring/types';
-import { UInt } from '@polkadot/types/codec';
+import { U8aFixed, UInt } from '@polkadot/types/codec';
+import { Text, U128 } from '@polkadot/types/primitive';
 import { TypeRegistry } from "@polkadot/types/create";
+import * as crypto from '@polkadot/util-crypto';
 // Import Web3 from 'web3';
+import { testValidator } from "@polkadot/util-crypto/base32/is";
 import { expect } from "chai";
-import { step } from "mocha-steps";
-import { describeLitentry } from "./utils"
+
+// Import elliptic crypto 
+//import { elliptic } from 'elliptic';
+var elliptic = require('elliptic');
+const ec = new elliptic.ec('secp256k1');
+
+// Import eth lib (wrapper of elliptic lib)
+var Account = require('eth-lib/lib/account');
+var Hash = require('eth-lib/lib/hash');
 
 const privateKey = '0xe82c0c4259710bb0d6cf9f9e8d0ad73419c1278a14d375e5ca691e7618103011';
 
@@ -16,9 +26,13 @@ const wsProvider = new WsProvider("ws://localhost:9944");
 const keyring = new Keyring({ type: 'sr25519' });
 
 // Configs of test ropsten account
-const testEthAddress = "[0x4d88dc5d528a33e4b8be579e9476715f60060582]";
+const test_eth_address = "[0x4d88dc5d528a33e4b8be579e9476715f60060582]";
 
 const msgPrefix: string = "Link Litentry: ";
+//const msgPrefix: string = "\x19Ethereum Signed Message:\n51Link Litentry: ";
+
+const keyringRopsten = new Keyring({ type: 'ecdsa' });
+
 
 // Setup the API and Alice Account
 async function init() {
@@ -75,6 +89,10 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
   // Encode prefix with concatenated utf8, instead of SCALE codec to match the litentry node implementation
 	let encodedPrefix = Buffer.from(msgPrefix, 'utf-8');
   
+  //let encodedAccId = registry.createType('AccountId', alice.address).toU8a();
+  //console.log(encodedAccId);
+  //console.log(alice.addressRaw);
+
   let encodedExpiredBlock = new UInt(registry, 10000, 32).toU8a();
 
   let encodedMsg = new Uint8Array(encodedPrefix.length + alice.addressRaw.length + encodedExpiredBlock.length);
@@ -82,21 +100,51 @@ async function eth_link(api: ApiPromise, alice: KeyringPair) {
   encodedMsg.set(alice.addressRaw, encodedPrefix.length);
   encodedMsg.set(encodedExpiredBlock, encodedPrefix.length + alice.addressRaw.length);
 
-  // Web3 is used to sign the message with ethereum prefix ("\x19Ethereum ...")
-  const Web3 = require("web3");
+  // To use manual hash and sign method, a prefix of \x19Ethereum ... is also needed to be prefixed manually
+	//let hash = Hash.keccak256s(encodedMsg);
+
+  //console.log('hash is:');
+  //console.log(hash);
+
+	// TODO ECDSA keyring from polkadot crypto still not working
+  //const ropstenTestAcc = keyringRopsten.addFromUri('0xe82c0c4259710bb0d6cf9f9e8d0ad73419c1278a14d375e5ca691e7618103011');
+  //console.log('ropsten pub key: ');
+  //console.log(ropstenTestAcc.publicKey);
+  //console.log(ropstenTestAcc.address);
+  //console.log(crypto.keccakAsU8a(ropstenTestAcc.publicKey));
+  //let signedMsg = ropstenTestAcc.sign(new Buffer(hash2.slice(2), "hex"));
+  //let r = signedMsg.slice(0, 32);
+  //let s = signedMsg.slice(32, 64);
+  //let v = signedMsg[64];
+	
+  //var signature = Account.sign(hash, privateKey);
+  //var vrs = Account.decodeSignature(signature);
+  //console.log("signature is :");
+  //console.log(signature);
+  //console.log(keyPair.sign(new Buffer(hash2.slice(2), "hex"), { canonical: true }).r.toString(16));
+
+	// TODO Web3 could be used to replace eth-lib once ethereum prefix is implemented on account-linker side
+	const Web3 = require("web3");
   const web3 = new Web3();
    // Convert byte array to hex string
   let hexString = "0x" + Buffer.from(encodedMsg).toString('hex');
 
   let signedMsg = web3.eth.accounts.sign(hexString, privateKey);
-  
+
+	// This is not needed as eth-lib already does the same job
+	//let keyPair = ec.keyFromPrivate(new Buffer(privateKey.slice(2), "hex"));
+	//let privKey = keyPair.getPrivate("hex");
+	//let pubKey = keyPair.getPublic();
+	//console.log(`Private key: ${privKey}`);
+	//console.log("Public key :", pubKey.encode("hex").substr(2));
+	//console.log("Public key (compressed):",
+	//    pubKey.encodeCompressed("hex"));
+  // let signature = ec.sign(hash, privKey, "hex", {canonical: true});
+
   // Convert ethereum address to bytes array
   let ethAddressBytes = web3.utils.hexToBytes(web3.eth.accounts.privateKeyToAccount(privateKey).address);
 
-  console.log(`r is ${signedMsg.r}`);
-  console.log(`s is ${signedMsg.s}`);
-  console.log(`v is ${signedMsg.v}`);
-
+  //const transaction = api.tx.accountLinkerModule.link(alice.address, 0, 10000, vrs[1], vrs[2], vrs[0]);
   const transaction = api.tx.accountLinkerModule.linkEth(alice.address, 0, ethAddressBytes, 10000, signedMsg.r, signedMsg.s, signedMsg.v);
 
   const link = new Promise<{ block: string }>(async (resolve, reject) => {
@@ -129,8 +177,10 @@ async function check_linking_state(api: ApiPromise, alice: KeyringPair) {
 
 	const linkedEthAddress = (await api.query.accountLinkerModule.ethereumLink(alice.address));
   console.log(`Linked Ethereum addresses of Alice are: ${linkedEthAddress.toString()}`);
+  
+  expect(linkedEthAddress.toString()).to.equal(test_eth_address);
 
-	return linkedEthAddress;
+	return;
 }
 
 
@@ -171,30 +221,27 @@ async function get_assets(api: ApiPromise, alice: KeyringPair) {
 	const assetsBalances = (await api.query.offchainWorkerModule.accountBalance(alice.address));
   console.log(`Linked Ethereum balances of Alice are: ${assetsBalances.toString()}`);
   
-	return assetsBalances;
+  // TODO fetch real time balance and compare it here
+  expect(assetsBalances.toString()).to.equal(`[0,"0x00000000000000004563918244f40000"]`);
+
+	return;
 
 }
 
-describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
+async function main() {
+	const { api, alice } = await init();
 
-  step("Create Ethereum Link", async function () {
-    await eth_link(context.api, context.alice);
-  })
+	// step 1: Creating the contract from ALICE
+	const link = await eth_link(api, alice)
 
-  step("Retrieving Alice's linked Ethereum accounts", async function () {
-    const ethAddr = await check_linking_state(context.api, context.alice);
-  
-    expect(ethAddr.toString()).to.equal(testEthAddress);
-  })
+	// step 2: Retrieving Alice's linked Ethereum accounts
+	await check_linking_state(api, alice);
 
-  step("Claim assets for Alice", async function () {
-    await asset_claim(context.api, context.alice);
-  })
+	// step 3: Claim assets for Alice
+	await asset_claim(api, alice);
 
-  step("Retrieving assets information of Alice", async function () {
-    const balances = await get_assets(context.api, context.alice);
-    // TODO fetch real time balance and compare it here
-    expect(balances.toString()).to.equal(`[0,"0x00000000000000004563918244f40000"]`);
-  })
+	// step 4: Retrieving assets information of Alice
+	await get_assets(api, alice);
+}
 
-});
+main().catch(console.error).then(() => process.exit(0));
