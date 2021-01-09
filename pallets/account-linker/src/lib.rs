@@ -53,6 +53,7 @@ decl_error! {
 		// Unexpected ethereum message length error
 		UnexpectedEthMsgLength,
 		InvalidBTCAddress,
+		InvalidBTCAddressLength,
 	}
 }
 
@@ -142,7 +143,7 @@ decl_module! {
 
 			// TODO: we may enlarge this 2
 			if addr_expected.len() < 2 {
-				Err(Error::<T>::LinkRequestExpired)?
+				Err(Error::<T>::InvalidBTCAddressLength)?
 			}
 
 			let addr_type = if &addr_expected[..0] == b"1" {
@@ -150,7 +151,7 @@ decl_module! {
 			} else if &addr_expected[..1] == b"bc" {
 				BTCAddrType::Segwit
 			} else {
-				Err(Error::<T>::LinkRequestExpired)?
+				Err(Error::<T>::InvalidBTCAddress)?
 			};
 
 			let mut bytes = b"Link Litentry: ".encode();
