@@ -277,11 +277,16 @@ impl pallet_account_linker::Trait for Runtime {
 // 	UncheckedExtrinsic
 // >;
 
+parameter_types! {
+	pub const QueryTaskRedudancy: u32 = 3;
+}
+
 /// Configure the template pallet in pallets/template.
 impl pallet_offchain_worker::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
 	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
+	type QueryTaskRedudancy = QueryTaskRedudancy;
 	// type SubmitUnsignedTransaction = SubmitPFTransaction;
 
 }
