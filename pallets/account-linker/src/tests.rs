@@ -33,7 +33,7 @@ fn generate_rsv(sig: &[u8; 65]) -> ([u8; 32], [u8; 32], u8) {
 }
 
 #[test]
-fn test_btc_link() {
+fn test_btc_link_legacy() {
 	new_test_ext().execute_with(|| {
 
 		use bitcoin::network::constants::Network;
