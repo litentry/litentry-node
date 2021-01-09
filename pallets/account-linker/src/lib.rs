@@ -146,9 +146,9 @@ decl_module! {
 				Err(Error::<T>::InvalidBTCAddressLength)?
 			}
 
-			let addr_type = if &addr_expected[..0] == b"1" {
+			let addr_type = if addr_expected[0] == b'1' {
 				BTCAddrType::Legacy
-			} else if &addr_expected[..1] == b"bc" {
+			} else if addr_expected[0] == b'b' && addr_expected[1] == b'c' { // TODO: a better way?
 				BTCAddrType::Segwit
 			} else {
 				Err(Error::<T>::InvalidBTCAddress)?
