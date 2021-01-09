@@ -77,9 +77,7 @@ fn test_btc_link() {
 			Origin::signed(account.clone()),
 			account.clone(),
 			0,
-			// b"123".to_vec(),
-			address.clone().to_string().as_bytes().to_vec(), // TODO not using tmp value
-			// Vec::new(),
+			address.clone().to_string().as_bytes().to_vec(),
 			block_number,
 			r,
 			s,

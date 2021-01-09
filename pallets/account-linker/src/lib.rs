@@ -195,6 +195,8 @@ decl_module! {
 				}
 			}
 
+			ensure!(addr == addr_expected, Error::<T>::UnexpectedAddress);
+
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);
 			// NOTE: allow linking `MAX_BTC_LINKS` btc addresses.
