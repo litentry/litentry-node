@@ -32,7 +32,6 @@ sp-runtime = { default-features = false, version = '2.0.0' }
 parity-crypto = {version = "0.4.0", features = ["publickey"] }
 bitcoin = { version = "0.25.2", features = ["rand"] }
 hex = "0.4.2"
-base58 = "0.1"
 syn = "=1.0.57"
 
 [features]
