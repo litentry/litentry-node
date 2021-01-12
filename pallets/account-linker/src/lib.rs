@@ -179,7 +179,7 @@ decl_module! {
 			// let pk_no_prefix = secp256k1_ecdsa_recover(&sig, &msg)
 			// 	.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
-			let pk_no_prefix = secp256k1_ecdsa_recover_compressed(&sig, &msg)
+			let pk = secp256k1_ecdsa_recover_compressed(&sig, &msg)
 			.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
 			let mut addr = Vec::new();
@@ -194,11 +194,16 @@ decl_module! {
 
 					// addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
 
-					addr = btc::legacy::btc_addr_from_pk_compressed(pk_no_prefix).to_base58();
+					addr = btc::legacy::btc_addr_from_pk_compressed(pk).to_base58();
 				},
+				// Native P2WPKH is a scriptPubKey of 22 bytes. 
+				// It starts with a OP_0, followed by a canonical push of the keyhash (i.e. 0x0014{20-byte keyhash})
 				BTCAddrType::Segwit => {
-					// some transformation of the pk
-					let pk = pk_no_prefix;
+					let pk_hash = btc::legacy::hash160(&pk);
+					let mut pk = [0u8; 22];
+					pk[0] = 0;
+					pk[1] = 20;
+					pk[2..].copy_from_slice(&pk_hash);
 					let wp = WitnessProgram::from_scriptpubkey(&pk.to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
 					addr = wp.to_address(b"bc".to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
 				}

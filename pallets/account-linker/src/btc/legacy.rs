@@ -29,7 +29,7 @@ fn checksum(input: &[u8]) -> [u8; 4] {
 	result
 }
 
-fn hash160(bytes: &[u8]) -> [u8; 20] {
+pub fn hash160(bytes: &[u8]) -> [u8; 20] {
     let mut hasher_sha256 = Sha256::new();
     hasher_sha256.update(bytes);
     let digest = hasher_sha256.finalize();
