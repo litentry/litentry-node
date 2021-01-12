@@ -172,6 +172,10 @@ decl_module! {
 			sig[32..64].copy_from_slice(&s[..32]);
 			sig[64] = v;
 			
+
+			// currently both compressed and uncompressed is ok for legacy address
+			// need to also modify the test
+
 			// let pk_no_prefix = secp256k1_ecdsa_recover(&sig, &msg)
 			// 	.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
