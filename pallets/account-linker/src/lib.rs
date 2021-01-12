@@ -2,7 +2,7 @@
 
 use codec::Encode;
 use sp_std::prelude::*;
-use sp_io::crypto::secp256k1_ecdsa_recover;
+use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, ensure};
 use frame_system::{ensure_signed};
 use btc::base58::ToBase58;
@@ -171,21 +171,26 @@ decl_module! {
 			sig[..32].copy_from_slice(&r[..32]);
 			sig[32..64].copy_from_slice(&s[..32]);
 			sig[64] = v;
+			
+			// let pk_no_prefix = secp256k1_ecdsa_recover(&sig, &msg)
+			// 	.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
-			let pk_no_prefix = secp256k1_ecdsa_recover(&sig, &msg)
-				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
+			let pk_no_prefix = secp256k1_ecdsa_recover_compressed(&sig, &msg)
+			.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
 			let mut addr = Vec::new();
 
 			match addr_type {
 				BTCAddrType::Legacy => {
-					let mut pk = [0u8; 65];
+					// let mut pk = [0u8; 65];
 
-					// pk prefix = 4
-					pk[0] = 4;
-					pk[1..65].copy_from_slice(&pk_no_prefix);
+					// // pk prefix = 4
+					// pk[0] = 4;
+					// pk[1..65].copy_from_slice(&pk_no_prefix);
 
-					addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
+					// addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
+
+					addr = btc::legacy::btc_addr_from_pk_compressed(pk_no_prefix).to_base58();
 				},
 				BTCAddrType::Segwit => {
 					// some transformation of the pk

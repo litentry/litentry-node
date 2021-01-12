@@ -33,7 +33,7 @@ fn generate_rsv(sig: &[u8; 65]) -> ([u8; 32], [u8; 32], u8) {
 }
 
 #[test]
-fn test_btc_link_legacy() {
+fn test_btc_link_p2pkh() {
 	new_test_ext().execute_with(|| {
 
 		use bitcoin::network::constants::Network;
@@ -46,7 +46,7 @@ fn test_btc_link_legacy() {
 		let s = Secp256k1::new();
 		let pair = s.generate_keypair(&mut thread_rng());
 		let public_key = key::PublicKey {
-			compressed: false,
+			compressed: true,
 			key: pair.1,
 		};
 
