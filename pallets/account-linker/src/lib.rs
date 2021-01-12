@@ -198,6 +198,8 @@ decl_module! {
 				},
 				// Native P2WPKH is a scriptPubKey of 22 bytes. 
 				// It starts with a OP_0, followed by a canonical push of the keyhash (i.e. 0x0014{20-byte keyhash})
+				// keyhash is RIPEMD160(SHA256) of a compressed public key
+				// https://bitcoincore.org/en/segwit_wallet_dev/
 				BTCAddrType::Segwit => {
 					let pk_hash = btc::legacy::hash160(&pk);
 					let mut pk = [0u8; 22];
