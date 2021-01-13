@@ -38,6 +38,8 @@ use alt_serde::{Deserialize, Deserializer};
 #[cfg(test)]
 mod tests;
 
+mod utils;
+
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 const TOKEN_SERVER_URL: &str = "http://127.0.0.1:4000";
 
@@ -318,7 +320,7 @@ impl<T: Trait> Module<T> {
 				} else {
 					match core::str::from_utf8(&info.etherscan) {
 						Ok(token) => Self::fetch_balances(
-							Self::convert_u8_array_vec_to_u8_vec_vec(<account_linker::EthereumLink<T>>::get(account)),
+							utils::convert_u8_array_vec_to_u8_vec_vec(<account_linker::EthereumLink<T>>::get(account)),
 							urls::HttpRequest::GET(urls::HttpGet {
 								blockchain: urls::BlockChainType::ETH,
 								prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
@@ -359,7 +361,7 @@ impl<T: Trait> Module<T> {
 				} else {
 					match core::str::from_utf8(&info.infura) {
 						Ok(token) => Self::fetch_balances(
-							Self::convert_u8_array_vec_to_u8_vec_vec(<account_linker::EthereumLink<T>>::get(account)),
+							utils::convert_u8_array_vec_to_u8_vec_vec(<account_linker::EthereumLink<T>>::get(account)),
 							urls::HttpRequest::POST(urls::HttpPost {
 								url_main: "https://ropsten.infura.io/v3/",
 								blockchain: urls::BlockChainType::ETH,
@@ -437,13 +439,13 @@ impl<T: Trait> Module<T> {
 						link.extend(get_req.delimiter.as_bytes());
 					};
 
-					link.extend(Self::address_to_string(each_account));
+					link.extend(utils::address_to_string(each_account));
 				}
 				link.extend(get_req.postfix.as_bytes());
 				link.extend(get_req.api_token.as_bytes());
 
 				// Fetch json response via http get
-				Self::fetch_json_http_get(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
+				utils::fetch_json_http_get(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
 
 			urls::HttpRequest::POST(post_req) => {
@@ -462,12 +464,12 @@ impl<T: Trait> Module<T> {
 						body.extend(post_req.delimiter.as_bytes());
 					};
 
-					body.extend(Self::address_to_string(each_account));
+					body.extend(utils::address_to_string(each_account));
 				}
 				body.extend(post_req.postfix.as_bytes());
 
 				// Fetch json response via http post
-				Self::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
+				utils::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
 		};
 
@@ -487,56 +489,6 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	// Fetch json result from remote URL with get method
-	fn fetch_json_http_get<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
-		let remote_url_str = core::str::from_utf8(remote_url)
-			.map_err(|_| "Error in converting remote_url to string")?;
-
-		let pending = http::Request::get(remote_url_str).send()
-			.map_err(|_| "Error in sending http GET request")?;
-
-		let response = pending.wait()
-			.map_err(|_| "Error in waiting http response back")?;
-
-		if response.code != 200 {
-			debug::warn!("Unexpected status code: {}", response.code);
-			return Err("Non-200 status code returned from http request");
-		}
-
-		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-
-		let balance =
-			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-
-		Ok(balance.as_bytes().to_vec())
-	}
-
-	// Fetch json result from remote URL with post method
-	fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<Vec<u8>, &'static str> {
-		let remote_url_str = core::str::from_utf8(remote_url)
-			.map_err(|_| "Error in converting remote_url to string")?;
-
-		debug::info!("Offchain Worker post request url is {}.", remote_url_str);
-
-		let pending = http::Request::post(remote_url_str, vec![body]).send()
-			.map_err(|_| "Error in sending http POST request")?;
-
-		let response = pending.wait()
-			.map_err(|_| "Error in waiting http response back")?;
-
-		if response.code != 200 {
-			debug::warn!("Unexpected status code: {}", response.code);
-			return Err("Non-200 status code returned from http request");
-		}
-
-		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-
-		let balance =
-			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-
-		Ok(balance.as_bytes().to_vec())
-	}
-
 	// Parse the balance from etherscan response
 	fn parse_etherscan_balances(price_str: &str) -> Option<Vec<u128>> {
 		// {
@@ -551,7 +503,7 @@ impl<T: Trait> Module<T> {
 		debug::info!("Offchain Worker response from etherscan is {:?}", price_str);
 
 		let token_info: EtherScanResponse = serde_json::from_str(price_str).ok()?;
-		let result: Vec<u128> = token_info.result.iter().map(|item| match Self::chars_to_u128(&item.balance.iter().map(|i| *i as char).collect()) {
+		let result: Vec<u128> = token_info.result.iter().map(|item| match utils::chars_to_u128(&item.balance.iter().map(|i| *i as char).collect()) {
 			Ok(balance) => balance,
 			Err(_) => 0_u128,
 		}).collect();
@@ -591,68 +543,11 @@ impl<T: Trait> Module<T> {
 		//]
 
 		let token_info: Vec<InfuraBalance> = serde_json::from_str(price_str).ok()?;
-		let result: Vec<u128> = token_info.iter().map(|item| match Self::chars_to_u128(&item.result.iter().map(|i| *i as char).collect()) {
+		let result: Vec<u128> = token_info.iter().map(|item| match utils::chars_to_u128(&item.result.iter().map(|i| *i as char).collect()) {
 			Ok(balance) => balance,
 			Err(_) => 0_u128,
 		}).collect();
 		Some(result)
-	}
-
-	// u128 number string to u128
-	pub fn chars_to_u128(vec: &Vec<char>) -> Result<u128, &'static str> {
-		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not)
-		let base = if vec.len() >= 2 && vec[0] == '0' && vec[1] == 'x' {
-			// This is a hexadecimal number
-			16
-		} else {
-			// This is a decimal number
-			10
-		};
-
-		let mut result: u128 = 0;
-		for (i, item) in vec.iter().enumerate() {
-			// Skip the 0 and x digit for hex.
-			// Using skip here instead of a new vec build to avoid an unnecessary copy operation
-			if base == 16 && i < 2 {
-				continue;
-			}
-
-			let n = item.to_digit(base);
-			match n {
-				Some(i) => {
-					let i_64 = i as u128;
-					result = result * base as u128 + i_64;
-					if result < i_64 {
-						return Err("Wrong u128 balance data format");
-					}
-				},
-				None => return Err("Wrong u128 balance data format"),
-			}
-		}
-		return Ok(result)
-	}
-
-	// number byte to string byte
-	fn u8_to_str_byte(a: u8) -> u8{
-		if a < 10 {
-			return a + 48 as u8;
-		}
-		else {
-			return a + 87 as u8;
-		}
-	}
-
-	// address to string bytes
-	fn address_to_string(address: &[u8]) -> Vec<u8> {
-
-		let mut vec_result: Vec<u8> = Vec::new();
-		for item in address {
-			let a: u8 = item & 0x0F;
-			let b: u8 = item >> 4;
-			vec_result.push(Self::u8_to_str_byte(b));
-			vec_result.push(Self::u8_to_str_byte(a));
-		}
-		return vec_result;
 	}
 
 	// Get the API tokens from local server
@@ -692,17 +587,6 @@ impl<T: Trait> Module<T> {
 		debug::info!("Token info get from local server is {:?}.", &token_info);
 
 		Ok(())
-	}
-
-	// Convert Vec of u8 array to Vec of u8 Vec
-	fn convert_u8_array_vec_to_u8_vec_vec(u8_array_vec: Vec<[u8; 20]>) -> Vec<Vec<u8>> {
-		let mut vec_result: Vec<Vec<u8>> = Vec::new();
-
-		for each_array in u8_array_vec {
-			vec_result.push(each_array.to_vec());
-		}
-
-		vec_result
 	}
 }
 
