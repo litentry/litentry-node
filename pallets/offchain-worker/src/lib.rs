@@ -42,7 +42,7 @@ use alt_serde::{Deserialize, Deserializer};
 
 #[cfg(test)]
 mod tests;
-
+mod urls;
 mod utils;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
@@ -134,76 +134,6 @@ impl fmt::Debug for TokenInfo {
 	}
 }
 
-/// URL mod to define request data structure
-mod urls {
-	use codec::{Encode, Decode};
-	/// Asset type
-	#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
-	pub enum BlockChainType {
-		/// invalid
-		INVALID,
-		/// eth token
-		ETH,
-		/// bitcoin
-		BTC,
-	}
-
-	impl Default for BlockChainType {
-		fn default() -> Self {BlockChainType::INVALID}
-	}
-
-	/// Eth source enum
-	#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
-	pub enum DataSource {
-		/// invalid
-		INVALID,
-		/// etherscan
-		ETHERSCAN,
-		/// infura
-		INFURA,
-		/// blockchain
-		BLOCKCHAIN,
-	}
-
-	impl Default for DataSource {
-		fn default() -> Self {DataSource::INVALID}
-	}
-
-	/// Task list, each validator choose one task 
-	const TASKLIST: [(BlockChainType, DataSource); 3] = [
-		(BlockChainType::ETH, DataSource::ETHERSCAN),
-		(BlockChainType::ETH, DataSource::INFURA),
-		(BlockChainType::BTC, DataSource::BLOCKCHAIN),
-	];
-
-	/// Http Get URL structure
-	pub struct HttpGet<'a> {
-		pub blockchain: BlockChainType,
-		// URL affix
-		pub prefix: &'a str,
-		pub delimiter: &'a str,
-		pub postfix: &'a str,
-		pub api_token: &'a str,
-	}
-
-	/// Http Post URL structure
-	pub struct HttpPost<'a> {
-		pub blockchain: BlockChainType,
-		// URL affix
-		pub url_main: &'a str,
-		pub api_token: &'a str,
-		// Body affix
-		pub prefix: &'a str,
-		pub delimiter: &'a str,
-		pub postfix: &'a str,
-	}
-
-	/// Request enum to wrap up both get and post method
-	pub enum HttpRequest<'a> {
-		GET(HttpGet<'a>),
-		POST(HttpPost<'a>),
-	}
-}
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -288,6 +218,8 @@ decl_error! {
 		NoLocalAcctForSigning,
 		/// Error from sign extrinsic
 		OffchainSignedTxError,
+		/// Invalid data source
+		InvalidDataSource
 	}
 }
 
@@ -301,6 +233,8 @@ decl_module! {
 
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
+
+		const QueryTaskRedudancy: u32 = T::QueryTaskRedudancy::get();
 
 		// Request offchain worker to get balance of linked external account
 		#[weight = 10_000]
@@ -351,12 +285,29 @@ decl_module! {
 		#[weight = 10_000]
 		// fn submit_number_signed(origin, account: T::AccountId, blockChainType: urls::BlockChainType, balance: u128)-> dispatch::DispatchResult {
 
-		fn submit_number_signed(origin, account: T::AccountId, block_number: T::BlockNumber, blockchain_type: urls::BlockChainType, balance: u128)-> dispatch::DispatchResult {
+		fn submit_number_signed(origin, account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			let sender = ensure_signed(origin)?;
-			let ocw_index = Self::get_ocw_index(&account);
-			
 
+			// Check data source
+			Self::valid_data_source(data_source)?;
+
+			// Check block number
+
+			// Check ocw index
+			let ocw_index = Self::get_ocw_index(&account);
+
+			let mut round: u32 = 0;
+			
+			let mut index: u32 = 0;
+			let data_source_index = urls::data_source_to_index(data_source);
+
+
+			while (round < T::QueryTaskRedudancy::get() as u32) {
+
+			}
+			
+			let blockchain_type = urls::data_source_to_block_chain_type(data_source);
 			CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, blockchain_type}, balance);
 
 			Ok(())
@@ -395,6 +346,14 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+	
+
+	fn valid_data_source(data_source: urls::DataSource) -> dispatch::DispatchResult {
+		match data_source {
+			urls::DataSource::INVALID => Err(<Error<T>>::InvalidDataSource.into()),
+			_ => Ok(()),
+		}
+	}
 	// Start new round of offchain worker
 	fn start(block_number: T::BlockNumber) {
 		let local_token = StorageValueRef::persistent(b"offchain-worker::token");
@@ -448,24 +407,31 @@ impl<T: Trait> Module<T> {
 					// loop for each source
 					for (_, source) in DATA_SOURCE.iter().enumerate() {
 						if task_index % total_task == ocw_account_index {
-							let balance = match source {
+							match source {
 								urls::DataSource::ETHERSCAN => {
-									Self::get_balance_from_etherscan(account, block_number, info)
+									match Self::get_balance_from_etherscan(account, block_number, info) {
+										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::ETHERSCAN, balance),
+										None => ()
+									}
 								},
 								urls::DataSource::INFURA => {
-									Self::get_balance_from_etherscan(account, block_number, info)
+									match Self::get_balance_from_infura(account, block_number, info) {
+										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::INFURA, balance),
+										None => ()
+									}
 								},
 								urls::DataSource::BLOCKCHAIN => {
-									Self::get_balance_from_etherscan(account, block_number, info)
+									match Self::get_balance_from_blockchain_info(account, block_number, info) {
+										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::BLOCKCHAIN, balance),
+										None => ()
+									}
 								},
-								_ => None,
+								_ => (),
 							};
 						}
-
 						task_index = task_index + 1;
 					}
 				}
-				
 			},
 			_ => {
 				Self::get_token();
@@ -544,7 +510,7 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	fn offchain_signed_tx(account: T::AccountId, block_number: T::BlockNumber, blockchain_type: urls::BlockChainType, balance: u128) -> Result<(), Error<T>> {
+	fn offchain_signed_tx(account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128) {
 		// We retrieve a signer and check if it is valid.
 		//   Since this pallet only has one key in the keystore. We use `any_account()1 to
 		//   retrieve it. If there are multiple keys and we want to pinpoint it, `with_filter()` can be chained,
@@ -565,14 +531,14 @@ impl<T: Trait> Module<T> {
 		//   - `Some((account, Err(())))`: error occured when sending the transaction
 		let result = signer.send_signed_transaction(|_acct|
 			// This is the on-chain function
-			Call::submit_number_signed(account.clone(), block_number, blockchain_type, balance)
+			Call::submit_number_signed(account.clone(), block_number, data_source, balance)
 		);
 
 		// Display error if the signed tx fails.
 		if let Some((acc, res)) = result {
 			if res.is_err() {
 				debug::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
-				return Err(<Error<T>>::OffchainSignedTxError);
+				// return Err(<Error<T>>::OffchainSignedTxError);
 			} else {
 				debug::error!("successful: offchain_signed_tx: tx sent: {:?} index is {:?}", acc.id, acc.index);
 			}
@@ -582,13 +548,15 @@ impl<T: Trait> Module<T> {
 			account.set(&acc.id);
 
 			// Transaction is sent successfully
-			return Ok(());
+			// return Ok(());
+		} else {
+			debug::error!("No local account available");
 		}
 
 		// The case of `None`: no account is available for sending
-		debug::error!("No local account available");
+		
 		// Err(<Error<T>>::NoLocalAcctForSigning)
-		Ok(())
+		// Ok(())
 	}
 
 	// Generic function to fetch balance for specific link type
