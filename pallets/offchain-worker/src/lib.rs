@@ -1,13 +1,13 @@
-//! # Offchain Worker 
-//! The pallet is responsible for get the external assets claim from the extrinsic and then query and aggregate the 
+//! # Offchain Worker
+//! The pallet is responsible for get the external assets claim from the extrinsic and then query and aggregate the
 //! balance (btc and eth) according to linked external accounts in account linker pallet. Offchain worker get the data
 //! from most popular websire like etherscan, infura and blockinfo. After get the balance, Offchain worker emit the event
 //! with balance info and store them on chain for on-chain query.
-//! 
+//!
 //! ## API token
-//! The offchain worker need the API token to query data from third party data provider. Currently, offchain worker get 
+//! The offchain worker need the API token to query data from third party data provider. Currently, offchain worker get
 //! the API tokens from a local server. Then store the API tokens in offchain worder local storage.
-//! 
+//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -266,7 +266,7 @@ decl_module! {
 			ensure_none(origin)?;
 			// Record the total claims processed
 			TotalClaims::put(Self::total_claims() + 1);
-			// Set balance 
+			// Set balance
 			<AccountBalance<T>>::insert(account.clone(), (btc_balance, eth_balance));
 			// Spit out an event and Add to storage
 			Self::deposit_event(RawEvent::BalanceGot(account, block, btc_balance, eth_balance));
@@ -317,34 +317,35 @@ impl<T: Trait> Module<T> {
 					Err(Error::<T>::InvalidNumber)
 				} else {
 					match core::str::from_utf8(&info.etherscan) {
-						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
+						Ok(token) => Self::fetch_balances(
+							Self::convert_u8_array_vec_to_u8_vec_vec(<account_linker::EthereumLink<T>>::get(account)),
 							urls::HttpRequest::GET(urls::HttpGet {
 								blockchain: urls::BlockChainType::ETH,
 								prefix: "https://api-ropsten.etherscan.io/api?module=account&action=balancemulti&address=0x",
 								delimiter: ",0x",
 								postfix: "&tag=latest&apikey=",
 								api_token: token,
-								}), 
+								}),
 							&Self::parse_etherscan_balances),
 						Err(_) => Err(Error::<T>::InvalidNumber),
 					}
 				}
 			};
-			
+
 			// Get balance from blockchain.info
 			let btc_balance = {
 				if info.blockchain.len() == 0 {
 					Err(Error::<T>::InvalidNumber)
 				} else {
 					match core::str::from_utf8(&info.blockchain) {
-						Ok(token) => Self::fetch_balances(Vec::new(), 
+						Ok(token) => Self::fetch_balances(<account_linker::BitcoinLink<T>>::get(account),
 							urls::HttpRequest::GET(urls::HttpGet {
 								blockchain: urls::BlockChainType::BTC,
 								prefix: "https://blockchain.info/balance?active=",
 								delimiter: "%7C",
 								postfix: "",
 								api_token: token,
-								}), 
+								}),
 							&Self::parse_blockchain_info_balances),
 						Err(_) => Err(Error::<T>::InvalidNumber),
 					}
@@ -357,7 +358,8 @@ impl<T: Trait> Module<T> {
 					Err(Error::<T>::InvalidNumber)
 				} else {
 					match core::str::from_utf8(&info.infura) {
-						Ok(token) => Self::fetch_balances(<account_linker::EthereumLink<T>>::get(account), 
+						Ok(token) => Self::fetch_balances(
+							Self::convert_u8_array_vec_to_u8_vec_vec(<account_linker::EthereumLink<T>>::get(account)),
 							urls::HttpRequest::POST(urls::HttpPost {
 								url_main: "https://ropsten.infura.io/v3/",
 								blockchain: urls::BlockChainType::ETH,
@@ -365,7 +367,7 @@ impl<T: Trait> Module<T> {
 								delimiter: r#"","latest"]},{"jsonrpc":"2.0","method":"eth_getBalance","id":1,"params":["0x"#,
 								postfix: r#"","latest"]}]"#,
 								api_token: token,
-								}), 
+								}),
 							&Self::parse_infura_balances),
 						Err(_) => Err(Error::<T>::InvalidNumber),
 					}
@@ -416,7 +418,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Generic function to fetch balance for specific link type
-	fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest, 
+	fn fetch_balances(wallet_accounts: Vec<Vec<u8>>, request: urls::HttpRequest,
 		parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
 		// Return if no account linked
 		if wallet_accounts.len() == 0 {
@@ -425,7 +427,7 @@ impl<T: Trait> Module<T> {
 
 		let result: Vec<u8> = match request {
 			urls::HttpRequest::GET(get_req) => {
-				// Compose the get request URL 
+				// Compose the get request URL
 				let mut link: Vec<u8> = Vec::new();
 				link.extend(get_req.prefix.as_bytes());
 
@@ -464,11 +466,11 @@ impl<T: Trait> Module<T> {
 				}
 				body.extend(post_req.postfix.as_bytes());
 
-				// Fetch json response via http post 
+				// Fetch json response via http post
 				Self::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
 		};
-		
+
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
 		let balances = parser(response);
 
@@ -489,7 +491,7 @@ impl<T: Trait> Module<T> {
 	fn fetch_json_http_get<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
-	
+
 		let pending = http::Request::get(remote_url_str).send()
 			.map_err(|_| "Error in sending http GET request")?;
 
@@ -513,25 +515,25 @@ impl<T: Trait> Module<T> {
 	fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<Vec<u8>, &'static str> {
 		let remote_url_str = core::str::from_utf8(remote_url)
 			.map_err(|_| "Error in converting remote_url to string")?;
-	
+
 		debug::info!("Offchain Worker post request url is {}.", remote_url_str);
-		
+
 		let pending = http::Request::post(remote_url_str, vec![body]).send()
 			.map_err(|_| "Error in sending http POST request")?;
-	
+
 		let response = pending.wait()
 			.map_err(|_| "Error in waiting http response back")?;
-	
+
 		if response.code != 200 {
 			debug::warn!("Unexpected status code: {}", response.code);
 			return Err("Non-200 status code returned from http request");
 		}
-	
+
 		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-		
+
 		let balance =
 			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-	
+
 		Ok(balance.as_bytes().to_vec())
 	}
 
@@ -571,7 +573,7 @@ impl<T: Trait> Module<T> {
 				for (_, v) in map_data.iter() {
 					match v["final_balance"].as_u64() {
 					Some(balance) =>  balance_vec.push(balance as u128),
-					None => (),    
+					None => (),
 					}
 				}
 			},
@@ -598,7 +600,7 @@ impl<T: Trait> Module<T> {
 
 	// u128 number string to u128
 	pub fn chars_to_u128(vec: &Vec<char>) -> Result<u128, &'static str> {
-		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not) 
+		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not)
 		let base = if vec.len() >= 2 && vec[0] == '0' && vec[1] == 'x' {
 			// This is a hexadecimal number
 			16
@@ -609,7 +611,7 @@ impl<T: Trait> Module<T> {
 
 		let mut result: u128 = 0;
 		for (i, item) in vec.iter().enumerate() {
-			// Skip the 0 and x digit for hex. 
+			// Skip the 0 and x digit for hex.
 			// Using skip here instead of a new vec build to avoid an unnecessary copy operation
 			if base == 16 && i < 2 {
 				continue;
@@ -618,7 +620,7 @@ impl<T: Trait> Module<T> {
 			let n = item.to_digit(base);
 			match n {
 				Some(i) => {
-					let i_64 = i as u128; 
+					let i_64 = i as u128;
 					result = result * base as u128 + i_64;
 					if result < i_64 {
 						return Err("Wrong u128 balance data format");
@@ -641,7 +643,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// address to string bytes
-	fn address_to_string(address: &[u8; 20]) -> Vec<u8> {
+	fn address_to_string(address: &[u8]) -> Vec<u8> {
 
 		let mut vec_result: Vec<u8> = Vec::new();
 		for item in address {
@@ -655,7 +657,7 @@ impl<T: Trait> Module<T> {
 
 	// Get the API tokens from local server
 	fn get_token<'a>() -> Result<(), &'static str> {
-	
+
 		let pending = http::Request::get(TOKEN_SERVER_URL).send()
 			.map_err(|_| "Error in sending http GET request")?;
 
@@ -690,6 +692,17 @@ impl<T: Trait> Module<T> {
 		debug::info!("Token info get from local server is {:?}.", &token_info);
 
 		Ok(())
+	}
+
+	// Convert Vec of u8 array to Vec of u8 Vec
+	fn convert_u8_array_vec_to_u8_vec_vec(u8_array_vec: Vec<[u8; 20]>) -> Vec<Vec<u8>> {
+		let mut vec_result: Vec<Vec<u8>> = Vec::new();
+
+		for each_array in u8_array_vec {
+			vec_result.push(each_array.to_vec());
+		}
+
+		vec_result
 	}
 }
 

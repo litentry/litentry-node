@@ -3885,7 +3885,6 @@ dependencies = [
 name = "pallet-account-linker"
 version = "2.0.0"
 dependencies = [
- "base58",
  "bitcoin",
  "frame-support",
  "frame-system",
