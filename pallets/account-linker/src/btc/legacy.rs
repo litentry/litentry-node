@@ -1,9 +1,16 @@
 use sha2::{Digest, Sha256};
 use ripemd160::Ripemd160;
 
-// pub fn btc_addr_from_pk_compressed(pk: [u8; 33]) {
+pub fn btc_addr_from_pk_compressed(pk: [u8; 33]) -> [u8; 25] {
+    let mut result = [0u8; 25];
 
-// }
+    // Now only support P2PKH (Mainnet) prefix = 0
+    result[0] = 0;
+    result[1..21].copy_from_slice(&hash160(&pk));
+    let cs = checksum(&result[0..21]);
+    result[21..25].copy_from_slice(&cs);
+    result
+}
 
 pub fn btc_addr_from_pk_uncompressed(pk: [u8; 65]) -> [u8; 25] {
     let mut result = [0u8; 25];
@@ -22,7 +29,7 @@ fn checksum(input: &[u8]) -> [u8; 4] {
 	result
 }
 
-fn hash160(bytes: &[u8]) -> [u8; 20] {
+pub fn hash160(bytes: &[u8]) -> [u8; 20] {
     let mut hasher_sha256 = Sha256::new();
     hasher_sha256.update(bytes);
     let digest = hasher_sha256.finalize();

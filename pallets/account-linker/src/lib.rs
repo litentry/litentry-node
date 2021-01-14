@@ -2,10 +2,11 @@
 
 use codec::Encode;
 use sp_std::prelude::*;
-use sp_io::crypto::secp256k1_ecdsa_recover;
+use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, ensure};
 use frame_system::{ensure_signed};
 use btc::base58::ToBase58;
+use btc::witness::WitnessProgram;
 
 #[cfg(test)]
 mod mock;
@@ -21,6 +22,11 @@ pub const MAX_BTC_LINKS: usize = 3;
 
 pub trait Trait: frame_system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+}
+
+enum BTCAddrType {
+	Legacy,
+	Segwit,
 }
 
 decl_storage! {
@@ -46,6 +52,8 @@ decl_error! {
 		UnexpectedAddress,
 		// Unexpected ethereum message length error
 		UnexpectedEthMsgLength,
+		InvalidBTCAddress,
+		InvalidBTCAddressLength,
 	}
 }
 
@@ -133,6 +141,19 @@ decl_module! {
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
 
+			// TODO: we may enlarge this 2
+			if addr_expected.len() < 2 {
+				Err(Error::<T>::InvalidBTCAddressLength)?
+			}
+
+			let addr_type = if addr_expected[0] == b'1' {
+				BTCAddrType::Legacy
+			} else if addr_expected[0] == b'b' && addr_expected[1] == b'c' { // TODO: a better way?
+				BTCAddrType::Segwit
+			} else {
+				Err(Error::<T>::InvalidBTCAddress)?
+			};
+
 			let mut bytes = b"Link Litentry: ".encode();
 			let mut account_vec = account.encode();
 			let mut expiring_block_number_vec = expiring_block_number.encode();
@@ -150,17 +171,47 @@ decl_module! {
 			sig[..32].copy_from_slice(&r[..32]);
 			sig[32..64].copy_from_slice(&s[..32]);
 			sig[64] = v;
+			
 
-			let pk_no_prefix = secp256k1_ecdsa_recover(&sig, &msg)
-				.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
+			// currently both compressed and uncompressed is ok for legacy address
+			// need to also modify the test
 
-			let mut pk = [0u8; 65];
+			// let pk_no_prefix = secp256k1_ecdsa_recover(&sig, &msg)
+			// 	.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
-			// pk prefix = 4
-			pk[0] = 4;
-			pk[1..65].copy_from_slice(&pk_no_prefix);
+			let pk = secp256k1_ecdsa_recover_compressed(&sig, &msg)
+			.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
-			let addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
+			let mut addr = Vec::new();
+
+			match addr_type {
+				BTCAddrType::Legacy => {
+					// let mut pk = [0u8; 65];
+
+					// // pk prefix = 4
+					// pk[0] = 4;
+					// pk[1..65].copy_from_slice(&pk_no_prefix);
+
+					// addr = btc::legacy::btc_addr_from_pk_uncompressed(pk).to_base58();
+
+					addr = btc::legacy::btc_addr_from_pk_compressed(pk).to_base58();
+				},
+				// Native P2WPKH is a scriptPubKey of 22 bytes. 
+				// It starts with a OP_0, followed by a canonical push of the keyhash (i.e. 0x0014{20-byte keyhash})
+				// keyhash is RIPEMD160(SHA256) of a compressed public key
+				// https://bitcoincore.org/en/segwit_wallet_dev/
+				BTCAddrType::Segwit => {
+					let pk_hash = btc::legacy::hash160(&pk);
+					let mut pk = [0u8; 22];
+					pk[0] = 0;
+					pk[1] = 20;
+					pk[2..].copy_from_slice(&pk_hash);
+					let wp = WitnessProgram::from_scriptpubkey(&pk.to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
+					addr = wp.to_address(b"bc".to_vec()).map_err(|_| Error::<T>::InvalidBTCAddress)?;
+				}
+			}
+
+			ensure!(addr == addr_expected, Error::<T>::UnexpectedAddress);
 
 			let index = index as usize;
 			let mut addrs = Self::btc_addresses(&account);
@@ -179,31 +230,5 @@ decl_module! {
 
 		}
 
-		#[weight = 1]
-		pub fn test(
-			origin,
-			account: T::AccountId,
-			index: u32,
-			addr: [u8; 20],
-		) -> dispatch::DispatchResult {
-
-			let _ = ensure_signed(origin)?;
-
-			let index = index as usize;
-			let mut addrs = Self::eth_addresses(&account);
-			// NOTE: allow linking `MAX_ETH_LINKS` eth addresses.
-			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) {
-				addrs.push(addr);
-			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
-				addrs[MAX_ETH_LINKS - 1] = addr;
-			} else {
-				addrs[index] = addr;
-			}
-
-			<EthereumLink<T>>::insert(account, addrs);
-
-			Ok(())
-
-		}
 	}
 }
