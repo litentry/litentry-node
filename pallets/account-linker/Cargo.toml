@@ -29,7 +29,7 @@ ripemd160 = {default-features = false, version = "0.9.1" }
 [dev-dependencies]
 sp-core = { default-features = false, version = '2.0.1'}
 sp-runtime = { default-features = false, version = '2.0.1' }
-parity-crypto = {version = "0.7.0", features = ["publickey"] }
+parity-crypto = {version = "0.4.0", features = ["publickey"] }
 bitcoin = { version = "0.25.2", features = ["rand"] }
 hex = "0.4.2"
 
