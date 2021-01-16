@@ -12,128 +12,32 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use sp_std::{prelude::*};
-use core::{convert::TryInto, fmt};
+use core::{convert::TryInto,};
 use frame_system::{
 	ensure_signed, ensure_none,
 	offchain::{CreateSignedTransaction, SubmitTransaction, Signer, AppCrypto, SendSignedTransaction,},
 };
 use frame_support::{
 	debug, dispatch, decl_module, decl_storage, decl_event, decl_error,
-	ensure, storage::IterableStorageMap, Parameter,
-	traits::Get,
+	ensure, storage::IterableStorageMap, traits::Get, weights::Weight,
 };
 use sp_core::crypto::KeyTypeId;
-
 use sp_runtime::{
 	transaction_validity::{
 		ValidTransaction, InvalidTransaction, TransactionValidity, TransactionSource, TransactionLongevity,
 	},
-	traits::{
-		Zero, AtLeast32BitUnsigned, StaticLookup, Member, CheckedAdd, CheckedSub,
-		MaybeSerializeDeserialize, Saturating, Bounded,
-	},
 };
-use sp_runtime::offchain::{http, storage::StorageValueRef,};
-use codec::{Codec, Encode, Decode, EncodeLike};
+use sp_runtime::offchain::{storage::StorageValueRef,};
+use codec::{Encode, Decode};
 
-// We use `alt_serde`, and Xanewok-modified `serde_json` so that we can compile the program
-//   with serde(features `std`) and alt_serde(features `no_std`).
-use alt_serde::{Deserialize, Deserializer};
-
-#[cfg(test)]
-mod tests;
 mod urls;
 mod utils;
 
+#[cfg(test)]
+mod tests;
+
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
 const TOKEN_SERVER_URL: &str = "http://127.0.0.1:4000";
-const DATA_SOURCE: [urls::DataSource; 3] = [urls::DataSource::ETHERSCAN, urls::DataSource::INFURA, urls::DataSource::BLOCKCHAIN];
-
-/// Store all API tokens for offchain worker to send request to website
-#[serde(crate = "alt_serde")]
-#[derive(Deserialize, Encode, Decode, Default)]
-struct TokenInfo {
-	/// API token for etherscan service
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	etherscan: Vec<u8>,
-	/// API token for infura service
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	infura: Vec<u8>,
-	/// API token for blockchain.info website
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	blockchain: Vec<u8>,
-}
-
-/// Balances data embedded in etherscan response
-#[serde(crate = "alt_serde")]
-#[derive(Deserialize, Encode, Decode, Default)]
-struct EtherScanBalance {
-	/// Ethereum account
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	account: Vec<u8>,
-	/// Eth balance
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	balance: Vec<u8>,
-}
-
-/// Response data from etherscan
-#[serde(crate = "alt_serde")]
-#[derive(Deserialize, Encode, Decode, Default)]
-struct EtherScanResponse {
-	/// Http response status
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	status: Vec<u8>,
-	/// Http response message
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	message: Vec<u8>,
-	/// Ethereum account and its balance
-	result: Vec<EtherScanBalance>,
-}
-
-/// Balances data from Infura service
-#[serde(crate = "alt_serde")]
-#[derive(Deserialize, Encode, Decode, Default)]
-struct InfuraBalance {
-	/// Json RPV version
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	jsonrpc: Vec<u8>,
-	/// Query ID
-	id: u32,
-	/// Balance data
-	#[serde(deserialize_with = "de_string_to_bytes")]
-	result: Vec<u8>,
-}
-
-/// Response from Infura
-#[serde(crate = "alt_serde")]
-#[derive(Deserialize, Encode, Decode, Default)]
-struct InfuraResponse {
-	/// Response vector for several Ethreum account
-	response: Vec<InfuraBalance>,
-}
-
-/// Deserialize string to Vec<u8>
-pub fn de_string_to_bytes<'de, D>(de: D) -> Result<Vec<u8>, D::Error>
-where
-	D: Deserializer<'de>,
-{
-	let s: &str = Deserialize::deserialize(de)?;
-	Ok(s.as_bytes().to_vec())
-}
-
-/// Implement Debug trait for print TokenInfo
-impl fmt::Debug for TokenInfo {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(
-			f,
-			"{{ etherscan: {}, infura: {}, blockchain: {} }}",
-			sp_std::str::from_utf8(&self.etherscan).map_err(|_| fmt::Error)?,
-			sp_std::str::from_utf8(&self.infura).map_err(|_| fmt::Error)?,
-			sp_std::str::from_utf8(&self.blockchain).map_err(|_| fmt::Error)?,
-		)
-	}
-}
-
 
 pub mod crypto {
 	use super::KEY_TYPE;
@@ -171,19 +75,26 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 	type Call: From<Call<Self>>;
 	type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 	type QueryTaskRedudancy: Get<u32>;
+	type QuerySessionLength: Get<u32>;
 }
 
 decl_storage! {
 	trait Store for Module<T: Trait> as OffchainWorkerModule {
-		/// Record how many claims from Litentry user
+		/// Record how many claims from Litentry user 
 		TotalClaims get(fn total_claims): u64;
+
 		/// Record the accounts send claims in latest block
 		ClaimAccountSet get(fn query_account_set): map hasher(blake2_128_concat) T::AccountId => ();
 
-		AccountBalance2 get(fn account_balance2): map hasher(blake2_128_concat) T::AccountId => (Option<u128>, Option<u128>);
+		/// ClaimAccountNumber record how many accout claimed asset query in last session
+		ClaimAccountNumber get(fn claim_account_number): u32;
+
+		/// ClaimAccountIndex record the index of account claimed asset query in last session
+		ClaimAccountIndex get(fn claim_account_index): map hasher(blake2_128_concat) T::AccountId => Option<u32>;
 
 		/// Record account's btc and ethereum balance
 		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (Option<u128>, Option<u128>);
+		
 		/// Map AccountId
 		LastCommitBlockNumber get(fn last_commit_block_number): map hasher(blake2_128_concat) T::AccountId => T::BlockNumber;
 
@@ -192,6 +103,7 @@ decl_storage! {
 
 		/// 
 		AccountIndex get(fn account_index): map hasher(blake2_128_concat) T::AccountId => Option<u32>;
+
 		/// 
 		CommittedAccountNumber get(fn committed_account_number): u32;
 	}
@@ -219,7 +131,7 @@ decl_error! {
 		/// Error from sign extrinsic
 		OffchainSignedTxError,
 		/// Invalid data source
-		InvalidDataSource
+		InvalidDataSource,
 	}
 }
 
@@ -235,6 +147,7 @@ decl_module! {
 		fn deposit_event() = default;
 
 		const QueryTaskRedudancy: u32 = T::QueryTaskRedudancy::get();
+		const QuerySessionLength: u32 = T::QuerySessionLength::get();
 
 		// Request offchain worker to get balance of linked external account
 		#[weight = 10_000]
@@ -254,6 +167,18 @@ decl_module! {
 		fn clear_claim(origin, block: T::BlockNumber)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			ensure_none(origin)?;
+
+			let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
+ 
+			// Set claim account number
+			ClaimAccountNumber::put(accounts.len() as u32);
+
+			// Set account index
+			let abc: Option<u32> = Some(123);
+			for (index, account) in accounts.iter().enumerate() {
+				<ClaimAccountIndex<T>>::insert(&account, index as u32);
+			}
+
 			// Remove all claimed accounts
 			<ClaimAccountSet::<T>>::remove_all();
 
@@ -283,8 +208,6 @@ decl_module! {
 
 		// Record the balance on chain
 		#[weight = 10_000]
-		// fn submit_number_signed(origin, account: T::AccountId, blockChainType: urls::BlockChainType, balance: u128)-> dispatch::DispatchResult {
-
 		fn submit_number_signed(origin, account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128)-> dispatch::DispatchResult {
 			// Ensuring this is an unsigned tx
 			let sender = ensure_signed(origin)?;
@@ -293,37 +216,51 @@ decl_module! {
 			Self::valid_data_source(data_source)?;
 
 			// Check block number
+			Self::valid_commit_block_number(block_number, <frame_system::Module<T>>::block_number())?;
 
-			// Check ocw index
-			let ocw_index = Self::get_ocw_index(&account);
+			// Check the commit slot
+			Self::valid_commit_slot(account.clone(), Self::get_ocw_index(&account), data_source)?;
 
-			let mut round: u32 = 0;
-			
-			let mut index: u32 = 0;
-			let data_source_index = urls::data_source_to_index(data_source);
-
-
-			while (round < T::QueryTaskRedudancy::get() as u32) {
-
-			}
-			
+			// put query result on chain
 			let blockchain_type = urls::data_source_to_block_chain_type(data_source);
 			CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, blockchain_type}, balance);
 
 			Ok(())
 		}
 
+		// Called at the beginning of each block
+		fn on_initialize(block_number: T::BlockNumber) -> Weight {
+			debug::info!("ocw on_initialize {:?}.", block_number);
+			0
+		}
+
+		// Call at the end of each block
+		fn on_finalize() {
+			debug::info!("ocw on_finalize.");
+		}
+
 		// Trigger by offchain framework in each block
 		fn offchain_worker(block_number: T::BlockNumber) {
-			const TRANSACTION_TYPES: usize = 10;
-			// let block_number_usize: usize = block_number.try_into();
+			debug::info!("ocw offchain_worker {:?}.", block_number);
+
+			let QuerySessionLength: usize = T::QuerySessionLength::get() as usize;
+
+			// Check session length
+			if QuerySessionLength < 3 {
+				debug::error!("ocw QuerySessionLength is too low as {}.", QuerySessionLength);
+				return
+			}
+
+			let last_block_number = QuerySessionLength - 1;
+
 			match block_number.try_into()
-				.map_or(TRANSACTION_TYPES, |bn| bn % TRANSACTION_TYPES)
+				.map_or(QuerySessionLength, |bn| bn % QuerySessionLength)
 			{
 				// The first block will trigger all offchain worker and clean the claims
 				0 => Self::start(block_number),
 				// The last block for aggregation and put balance queried into chain
-				9 => {
+				// May use the on finalized to do it.
+				last_block_number => {
 					// Record the account in local storage
 					let account = StorageValueRef::persistent(b"offchain-worker::account");
 					// account.set(&acc.id);
@@ -338,7 +275,7 @@ decl_module! {
 					}
 
 				},
-				// Block 1 to block 8 reserved for offchain worker to query and submit result
+				// Block between 1 and last block reserved for offchain worker to query and submit result
 				_ => {},
 			};			
 		}
@@ -346,19 +283,11 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-	
-
-	fn valid_data_source(data_source: urls::DataSource) -> dispatch::DispatchResult {
-		match data_source {
-			urls::DataSource::INVALID => Err(<Error<T>>::InvalidDataSource.into()),
-			_ => Ok(()),
-		}
-	}
 	// Start new round of offchain worker
 	fn start(block_number: T::BlockNumber) {
 		let local_token = StorageValueRef::persistent(b"offchain-worker::token");
 		
-		match local_token.get::<TokenInfo>() {
+		match local_token.get::<urls::TokenInfo>() {
 			Some(Some(token)) => {
 				// Get all accounts who ask for asset claim
 				let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
@@ -380,49 +309,134 @@ impl<T: Trait> Module<T> {
 			_ => {
 				debug::info!("Offchain Worker to get token from local server.");
 				// Get token from local server
-				let _ = Self::get_token();
+				let _ = urls::get_token();
 			},
 		};
+	}
+
+	fn valid_commit_slot(account: T::AccountId, ocw_index: u32, data_source: urls::DataSource) -> dispatch::DispatchResult {
+		// account claimed the asset query
+		let account_index = Self::get_account_index(account)?;
+
+		// ocw length
+		let ocw_length = Self::get_ocw_length();
+		// if no ocw works in last session, then all new ocw valid for all accounts with all data source
+		if ocw_length == 0 {
+			return Ok(())
+		}	
+		
+		// ensure ocw index is valid
+		ensure!(ocw_index <= ocw_length, <Error<T>>::InvalidDataSource);
+
+		// ensure data source is valid
+		ensure!(data_source != urls::DataSource::Invalid, <Error<T>>::InvalidDataSource);
+
+		// get data source index
+		let data_source_index = urls::data_source_to_index(data_source);
+		
+		// query task rounds
+		let QueryTaskRedudancy: u32 = T::QueryTaskRedudancy::get();
+
+		// task number per round
+		let total_task_per_round = urls::TOTAL_DATA_SOURCE_NUMBER * Self::claim_account_number();
+
+		// task index in the first round
+		let task_base_index = data_source_index + account_index * urls::TOTAL_DATA_SOURCE_NUMBER;
+
+		let mut round: u32 = 0;
+		while round < QueryTaskRedudancy {
+			// task index in n round
+			let task_index = task_base_index + round * total_task_per_round;
+
+			if task_index >= ocw_index {
+				// if index match return Ok
+				if (task_index - ocw_index) % ocw_length == 0 {
+					return Ok(())
+				}
+			}
+			round = round + 1;
+		}
+
+		// no match found, return error
+		Err(<Error<T>>::InvalidDataSource.into())
+	}
+
+	fn get_account_index(account: T::AccountId) -> Result<u32, Error<T>> {
+		match Self::claim_account_index(account) {
+			Some(index) => Ok(index),
+			None => Err(<Error<T>>::InvalidDataSource.into()),
+		}
+	}
+
+	fn valid_data_source(data_source: urls::DataSource) -> dispatch::DispatchResult {
+		match data_source {
+			urls::DataSource::Invalid => Err(<Error<T>>::InvalidDataSource.into()),
+			_ => Ok(()),
+		}
+	}
+
+	fn valid_commit_block_number(commit_block_number: T::BlockNumber, current_block_number: T::BlockNumber) -> dispatch::DispatchResult {
+		let zero_block: u32 = 0;
+		// let a: u32 = block_number.try_into();
+		let commit_block_number: u32 = commit_block_number.try_into().map_or(zero_block, |block_number| block_number as u32);
+		let current_block_number: u32 = current_block_number.try_into().map_or(zero_block, |block_number| block_number as u32);
+
+		if (commit_block_number == 0 || current_block_number == 0) {
+			return Err(<Error<T>>::InvalidDataSource.into());
+		}
+
+		let sesseion_start_block = commit_block_number / T::QueryTaskRedudancy::get() * T::QueryTaskRedudancy::get();
+		let sesseion_end_block = sesseion_start_block + T::QueryTaskRedudancy::get();
+
+		if (current_block_number > sesseion_end_block || sesseion_end_block <= sesseion_start_block) {
+			return Err(<Error<T>>::InvalidDataSource.into());
+		}
+		
+		Ok(())
 	}
 
 	fn get_ocw_index(account: &T::AccountId) -> u32 {
 		match Self::account_index(account) {
 			Some(index_in_map) => index_in_map,
-			_ => <AccountIndex::<T>>::iter().collect::<Vec<_>>().len() as u32,
+			_ => Self::get_ocw_length()
 		}
 	}
 
-	fn query(account_vec: &Vec<T::AccountId>, block_number: T::BlockNumber, info: &TokenInfo) {
+	fn get_ocw_length() -> u32 {
+		<AccountIndex::<T>>::iter().collect::<Vec<_>>().len() as u32
+	}
+
+	fn query(account_vec: &Vec<T::AccountId>, block_number: T::BlockNumber, info: &urls::TokenInfo) {
 		let offchain_worker_account = StorageValueRef::persistent(b"offchain-worker::account");
 
 		match offchain_worker_account.get::<T::AccountId>() {
 			Some(Some(account)) => {
 				let ocw_account_index = Self::get_ocw_index(&account);
 
-				let total_task = (account_vec.len() * DATA_SOURCE.len()) as u32;
+				let total_task = (account_vec.len() as u32) * urls::TOTAL_DATA_SOURCE_NUMBER;
 				let mut task_index = 0_u32;
 
 				// loop for each account
 				for (index, account) in account_vec.iter().enumerate() {
 					// loop for each source
-					for (_, source) in DATA_SOURCE.iter().enumerate() {
+					for (_, source) in urls::DataSourceList.iter().enumerate() {
 						if task_index % total_task == ocw_account_index {
 							match source {
-								urls::DataSource::ETHERSCAN => {
+								urls::DataSource::EtherScan => {
 									match Self::get_balance_from_etherscan(account, block_number, info) {
-										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::ETHERSCAN, balance),
+										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::EtherScan, balance),
 										None => ()
 									}
 								},
-								urls::DataSource::INFURA => {
+								urls::DataSource::Infura => {
 									match Self::get_balance_from_infura(account, block_number, info) {
-										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::INFURA, balance),
+										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::Infura, balance),
 										None => ()
 									}
 								},
-								urls::DataSource::BLOCKCHAIN => {
+								urls::DataSource::BlockChain => {
 									match Self::get_balance_from_blockchain_info(account, block_number, info) {
-										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::BLOCKCHAIN, balance),
+										Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::BlockChain, balance),
 										None => ()
 									}
 								},
@@ -434,12 +448,12 @@ impl<T: Trait> Module<T> {
 				}
 			},
 			_ => {
-				Self::get_token();
+				urls::get_token();
 			}
 		}
 	}
 
-	fn get_balance_from_etherscan(account: &T::AccountId, block: T::BlockNumber, info: &TokenInfo) -> Option<u128> {
+	fn get_balance_from_etherscan(account: &T::AccountId, block: T::BlockNumber, info: &urls::TokenInfo) -> Option<u128> {
 		if info.etherscan.len() == 0 {
 			None
 		} else {
@@ -456,14 +470,14 @@ impl<T: Trait> Module<T> {
 					Self::fetch_balances(
 						<account_linker::EthereumLink<T>>::get(account), 
 						urls::HttpRequest::GET(get),
-						&Self::parse_etherscan_balances).ok()
+						&urls::parse_etherscan_balances).ok()
 				},
 				Err(_) => None,
 			}
 		}
 	}
 
-	fn get_balance_from_infura(account: &T::AccountId, block: T::BlockNumber, info: &TokenInfo) -> Option<u128> {
+	fn get_balance_from_infura(account: &T::AccountId, block: T::BlockNumber, info: &urls::TokenInfo) -> Option<u128> {
 		
 		if info.infura.len() == 0 {
 			None
@@ -481,14 +495,14 @@ impl<T: Trait> Module<T> {
 					Self::fetch_balances(
 						<account_linker::EthereumLink<T>>::get(account),
 						urls::HttpRequest::POST(post),
-						&Self::parse_blockchain_info_balances).ok()
+						&urls::parse_blockchain_info_balances).ok()
 				},
 				Err(_) => None,
 			}
 		}
 	}
 
-	fn get_balance_from_blockchain_info(account: &T::AccountId, block: T::BlockNumber, info: &TokenInfo) -> Option<u128> {
+	fn get_balance_from_blockchain_info(account: &T::AccountId, block: T::BlockNumber, info: &urls::TokenInfo) -> Option<u128> {
 		if info.blockchain.len() == 0 {
 			None
 		} else {
@@ -503,32 +517,21 @@ impl<T: Trait> Module<T> {
 					};
 					Self::fetch_balances(Vec::new(), 
 						urls::HttpRequest::GET(get), 
-						&Self::parse_blockchain_info_balances).ok()
+						&urls::parse_blockchain_info_balances).ok()
 				},
 				Err(_) => None,
 			}
 		}
 	}
 
+	// Sign the query result 
 	fn offchain_signed_tx(account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128) {
-		// We retrieve a signer and check if it is valid.
-		//   Since this pallet only has one key in the keystore. We use `any_account()1 to
-		//   retrieve it. If there are multiple keys and we want to pinpoint it, `with_filter()` can be chained,
-		//   ref: https://substrate.dev/rustdocs/v2.0.0/frame_system/offchain/struct.Signer.html
+		// Get signer from ocw
 		let signer = Signer::<T, T::AuthorityId>::any_account();
 
-		// let tmp_account: T::AccountId = Default::default();
-		// signer.for_any(|account| account == tmp_account);
-
 		// Translating the current block number to number and submit it on-chain
-		let number: u64 = block_number.try_into().unwrap_or(0) as u64;
+		// let number: u64 = block_number.try_into().unwrap_or(0) as u64;
 
-		// <Test<T>>::insert(signer, block_number);
-
-		// `result` is in the type of `Option<(Account<T>, Result<(), ()>)>`. It is:
-		//   - `None`: no account is available for sending transaction
-		//   - `Some((account, Ok(())))`: transaction is successfully sent
-		//   - `Some((account, Err(())))`: error occured when sending the transaction
 		let result = signer.send_signed_transaction(|_acct|
 			// This is the on-chain function
 			Call::submit_number_signed(account.clone(), block_number, data_source, balance)
@@ -538,25 +541,16 @@ impl<T: Trait> Module<T> {
 		if let Some((acc, res)) = result {
 			if res.is_err() {
 				debug::error!("failure: offchain_signed_tx: tx sent: {:?}", acc.id);
-				// return Err(<Error<T>>::OffchainSignedTxError);
 			} else {
-				debug::error!("successful: offchain_signed_tx: tx sent: {:?} index is {:?}", acc.id, acc.index);
+				debug::info!("successful: offchain_signed_tx: tx sent: {:?} index is {:?}", acc.id, acc.index);
 			}
 
-			// Record the account in local storage
+			// Record the account in local storage then we can know my index
 			let account = StorageValueRef::persistent(b"offchain-worker::account");
 			account.set(&acc.id);
-
-			// Transaction is sent successfully
-			// return Ok(());
 		} else {
 			debug::error!("No local account available");
 		}
-
-		// The case of `None`: no account is available for sending
-		
-		// Err(<Error<T>>::NoLocalAcctForSigning)
-		// Ok(())
 	}
 
 	// Generic function to fetch balance for specific link type
@@ -579,13 +573,13 @@ impl<T: Trait> Module<T> {
 						link.extend(get_req.delimiter.as_bytes());
 					};
 
-					link.extend(Self::address_to_string(each_account));
+					link.extend(utils::address_to_string(each_account));
 				}
 				link.extend(get_req.postfix.as_bytes());
 				link.extend(get_req.api_token.as_bytes());
 
 				// Fetch json response via http get
-				Self::fetch_json_http_get(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
+				urls::fetch_json_http_get(&link[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
 
 			urls::HttpRequest::POST(post_req) => {
@@ -604,12 +598,12 @@ impl<T: Trait> Module<T> {
 						body.extend(post_req.delimiter.as_bytes());
 					};
 
-					body.extend(Self::address_to_string(each_account));
+					body.extend(utils::address_to_string(each_account));
 				}
 				body.extend(post_req.postfix.as_bytes());
 
 				// Fetch json response via http post 
-				Self::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
+				urls::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
 		};
 		
@@ -629,212 +623,6 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	// Fetch json result from remote URL with get method
-	fn fetch_json_http_get<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
-		let remote_url_str = core::str::from_utf8(remote_url)
-			.map_err(|_| "Error in converting remote_url to string")?;
-	
-		let pending = http::Request::get(remote_url_str).send()
-			.map_err(|_| "Error in sending http GET request")?;
-
-		let response = pending.wait()
-			.map_err(|_| "Error in waiting http response back")?;
-
-		if response.code != 200 {
-			debug::warn!("Unexpected status code: {}", response.code);
-			return Err("Non-200 status code returned from http request");
-		}
-
-		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-
-		let balance =
-			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-
-		Ok(balance.as_bytes().to_vec())
-	}
-
-	// Fetch json result from remote URL with post method
-	fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<Vec<u8>, &'static str> {
-		let remote_url_str = core::str::from_utf8(remote_url)
-			.map_err(|_| "Error in converting remote_url to string")?;
-	
-		debug::info!("Offchain Worker post request url is {}.", remote_url_str);
-		
-		let pending = http::Request::post(remote_url_str, vec![body]).send()
-			.map_err(|_| "Error in sending http POST request")?;
-	
-		let response = pending.wait()
-			.map_err(|_| "Error in waiting http response back")?;
-	
-		if response.code != 200 {
-			debug::warn!("Unexpected status code: {}", response.code);
-			return Err("Non-200 status code returned from http request");
-		}
-	
-		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-		
-		let balance =
-			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-	
-		Ok(balance.as_bytes().to_vec())
-	}
-
-	// Parse the balance from etherscan response
-	fn parse_etherscan_balances(price_str: &str) -> Option<Vec<u128>> {
-		// {
-		// "status": "1",
-		// "message": "OK",
-		// "result":
-		//   [
-		//     {"account":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e","balance":"3804372455842738500000001"},
-		//     {"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"2571179226430511381996287"}
-		//   ]
-		// }
-		debug::info!("Offchain Worker response from etherscan is {:?}", price_str);
-
-		let token_info: EtherScanResponse = serde_json::from_str(price_str).ok()?;
-		let result: Vec<u128> = token_info.result.iter().map(|item| match Self::chars_to_u128(&item.balance.iter().map(|i| *i as char).collect()) {
-			Ok(balance) => balance,
-			Err(_) => 0_u128,
-		}).collect();
-		Some(result)
-	}
-
-	// Parse balances from blockchain info response
-	fn parse_blockchain_info_balances(price_str: &str) -> Option<Vec<u128>>{
-		// {
-		//	"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":6835384571,"n_tx":2635,"total_received":6835384571},
-		//  "15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":0,"n_tx":4,"total_received":310925609}
-	  	// }
-		let mut balance_vec: Vec<u128> = Vec::new();
-
-		let value: serde_json::Value = serde_json::from_str(price_str).ok()?;
-
-		match value {
-			serde_json::Value::Object(map_data) => {
-				for (_, v) in map_data.iter() {
-					match v["final_balance"].as_u64() {
-					Some(balance) =>  balance_vec.push(balance as u128),
-					None => (),    
-					}
-				}
-			},
-			_ => (),
-		};
-
-		Some(balance_vec)
-	}
-
-	// Parse the balance from infura response
-	fn parse_infura_balances(price_str: &str) -> Option<Vec<u128>> {
-		//[
-		//  {"jsonrpc":"2.0","id":1,"result":"0x4563918244f40000"},
-		//  {"jsonrpc":"2.0","id":1,"result":"0xff"}
-		//]
-
-		let token_info: Vec<InfuraBalance> = serde_json::from_str(price_str).ok()?;
-		let result: Vec<u128> = token_info.iter().map(|item| match Self::chars_to_u128(&item.result.iter().map(|i| *i as char).collect()) {
-			Ok(balance) => balance,
-			Err(_) => 0_u128,
-		}).collect();
-		Some(result)
-	}
-
-	// u128 number string to u128
-	pub fn chars_to_u128(vec: &Vec<char>) -> Result<u128, &'static str> {
-		// Check if the number string is decimal or hexadecimal (whether starting with 0x or not) 
-		let base = if vec.len() >= 2 && vec[0] == '0' && vec[1] == 'x' {
-			// This is a hexadecimal number
-			16
-		} else {
-			// This is a decimal number
-			10
-		};
-
-		let mut result: u128 = 0;
-		for (i, item) in vec.iter().enumerate() {
-			// Skip the 0 and x digit for hex. 
-			// Using skip here instead of a new vec build to avoid an unnecessary copy operation
-			if base == 16 && i < 2 {
-				continue;
-			}
-
-			let n = item.to_digit(base);
-			match n {
-				Some(i) => {
-					let i_64 = i as u128; 
-					result = result * base as u128 + i_64;
-					if result < i_64 {
-						return Err("Wrong u128 balance data format");
-					}
-				},
-				None => return Err("Wrong u128 balance data format"),
-			}
-		}
-		return Ok(result)
-	}
-
-	// number byte to string byte
-	fn u8_to_str_byte(a: u8) -> u8{
-		if a < 10 {
-			return a + 48 as u8;
-		}
-		else {
-			return a + 87 as u8;
-		}
-	}
-
-	// address to string bytes
-	fn address_to_string(address: &[u8; 20]) -> Vec<u8> {
-
-		let mut vec_result: Vec<u8> = Vec::new();
-		for item in address {
-			let a: u8 = item & 0x0F;
-			let b: u8 = item >> 4;
-			vec_result.push(Self::u8_to_str_byte(b));
-			vec_result.push(Self::u8_to_str_byte(a));
-		}
-		return vec_result;
-	}
-
-	// Get the API tokens from local server
-	fn get_token<'a>() -> Result<(), &'static str> {
-	
-		let pending = http::Request::get(TOKEN_SERVER_URL).send()
-			.map_err(|_| "Error in sending http GET request")?;
-
-		let response = pending.wait()
-			.map_err(|_| "Error in waiting http response back")?;
-
-		if response.code != 200 {
-			debug::warn!("Unexpected status code: {}", response.code);
-			return Err("Non-200 status code returned from http request");
-		}
-
-		let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-
-		let balance =
-			core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-
-		debug::info!("Token json from local server is {:?}.", &balance);
-
-		let _ = Self::parse_store_tokens(balance);
-
-		Ok(())
-	}
-
-	// Parse the balance from infura response
-	fn parse_store_tokens(resp_str: &str) -> Result<(), Error<T>> {
-		let token_info: TokenInfo = serde_json::from_str(&resp_str).map_err(|_| <Error<T>>::InvalidNumber)?;
-
-		let s_info = StorageValueRef::persistent(b"offchain-worker::token");
-
-		s_info.set(&token_info);
-
-		debug::info!("Token info get from local server is {:?}.", &token_info);
-
-		Ok(())
-	}
 }
 
 #[allow(deprecated)]

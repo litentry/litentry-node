@@ -279,6 +279,7 @@ impl pallet_account_linker::Trait for Runtime {
 
 parameter_types! {
 	pub const QueryTaskRedudancy: u32 = 3;
+	pub const QuerySessionLength: u32 = 10;
 }
 
 /// Configure the template pallet in pallets/template.
@@ -287,7 +288,7 @@ impl pallet_offchain_worker::Trait for Runtime {
 	type Call = Call;
 	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
 	type QueryTaskRedudancy = QueryTaskRedudancy;
-	// type SubmitUnsignedTransaction = SubmitPFTransaction;
+	type QuerySessionLength = QuerySessionLength;
 
 }
 
