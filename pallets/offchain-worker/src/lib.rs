@@ -334,10 +334,12 @@ impl<T: Trait> Module<T> {
 				<AccountBalance<T>>::mutate(account, 
 					|value| value.1 = Some(most_value)
 				);
+				TotalClaims::put(Self::total_claims() + 1);
 			} else if block_type == urls::BlockChainType::BTC {
 				<AccountBalance<T>>::mutate(account, 
 					|value| value.0 = Some(most_value)
 				);
+				TotalClaims::put(Self::total_claims() + 1);
 			}
 		}
 
@@ -360,9 +362,6 @@ impl<T: Trait> Module<T> {
 		<ClaimAccountIndex<T>>::remove_all();
 
 		let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
-
-		// Set claim account number
-		// ClaimAccountNumber::put(accounts.len() as u32);
 
 		// Set account index
 		for (index, account) in accounts.iter().enumerate() {
