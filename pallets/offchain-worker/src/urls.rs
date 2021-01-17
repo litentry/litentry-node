@@ -11,7 +11,7 @@ use alt_serde::{Deserialize, Deserializer};
 use super::utils;
 
 /// Asset type
-#[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
+#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum BlockChainType {
     /// invalid
     Invalid,
@@ -24,6 +24,7 @@ pub enum BlockChainType {
 impl Default for BlockChainType {
     fn default() -> Self {BlockChainType::Invalid}
 }
+
 
 /// Eth source enum
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
@@ -39,7 +40,7 @@ pub enum DataSource {
 }
 
 pub const TOTAL_DATA_SOURCE_NUMBER: u32 = 3;
-pub const DataSourceList: [DataSource; TOTAL_DATA_SOURCE_NUMBER as usize] = [DataSource::EtherScan, DataSource::Infura, DataSource::BlockChain,];
+pub const DATA_SOURCE_LIST: [DataSource; TOTAL_DATA_SOURCE_NUMBER as usize] = [DataSource::EtherScan, DataSource::Infura, DataSource::BlockChain,];
 
 impl Default for DataSource {
     fn default() -> Self {DataSource::Invalid}
@@ -92,7 +93,6 @@ pub enum HttpRequest<'a> {
     GET(HttpGet<'a>),
     POST(HttpPost<'a>),
 }
-
 
 /// Store all API tokens for offchain worker to send request to website
 #[serde(crate = "alt_serde")]
@@ -179,7 +179,6 @@ impl fmt::Debug for TokenInfo {
 	}
 }
 
-
 // Fetch json result from remote URL with get method
 pub fn fetch_json_http_get<'a>(remote_url: &'a [u8]) -> Result<Vec<u8>, &'static str> {
     let remote_url_str = core::str::from_utf8(remote_url)
@@ -230,6 +229,7 @@ pub fn fetch_json_http_post<'a>(remote_url: &'a [u8], body: &'a [u8]) -> Result<
     Ok(balance.as_bytes().to_vec())
 }
 
+// Send request to local server for query api tokens
 pub fn send_get_token() -> Result<Vec<u8>, &'static str> {
     let pending = http::Request::get(super::TOKEN_SERVER_URL).send()
         .map_err(|_| "Error in sending http GET request")?;
@@ -249,22 +249,8 @@ pub fn send_get_token() -> Result<Vec<u8>, &'static str> {
 
 // Get the API tokens from local server
 pub fn get_token() {
-
-    // let pending = http::Request::get(super::TOKEN_SERVER_URL).send()
-    //     .map_err(|_| "Error in sending http GET request")?;
-
-    // let response = pending.wait()
-    //     .map_err(|_| "Error in waiting http response back")?;
-
-    // if response.code != 200 {
-    //     debug::warn!("Unexpected status code: {}", response.code);
-    //     return Err("Non-200 status code returned from http request");
-    // }
-
     match send_get_token() {
         Ok(json_result) => {
-            let balance = core::str::from_utf8(&json_result);
-
             match core::str::from_utf8(&json_result) {
                 Ok(balance) => parse_store_tokens(balance),
                 Err(_) => {},
@@ -272,17 +258,6 @@ pub fn get_token() {
         },
         Err(_) => {},
     }
-
-    // let json_result: Vec<u8> = response.body().collect::<Vec<u8>>();
-
-    // let balance =
-    //     core::str::from_utf8(&json_result).map_err(|_| "JSON result cannot convert to string")?;
-
-    // debug::info!("Token json from local server is {:?}.", &balance);
-
-    // let _ = parse_store_tokens(balance);
-
-    // Ok(())
 }
 
 #[allow(dead_code)]
@@ -349,8 +324,7 @@ pub fn parse_infura_balances(price_str: &str) -> Option<Vec<u128>> {
     Some(result)
 }
 
-
-// Parse the balance from infura response
+// Parse the token from local server
 pub fn parse_store_tokens(resp_str: &str) {
     let token_info: Result<TokenInfo, _> = serde_json::from_str(&resp_str);
 

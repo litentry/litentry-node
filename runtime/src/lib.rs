@@ -270,7 +270,7 @@ impl pallet_account_linker::Trait for Runtime {
 	type Event = Event;
 }
 
-/// We need to define the Transaction signer for that using the Key definition
+// We need to define the Transaction signer for that using the Key definition
 // type SubmitPFTransaction = frame_system::offchain::TransactionSubmitter<
 // 	pallet_offchain_worker::crypto::Public,
 // 	Runtime,
