@@ -25,7 +25,6 @@ impl Default for BlockChainType {
     fn default() -> Self {BlockChainType::Invalid}
 }
 
-
 /// Eth source enum
 #[derive(Encode, Decode, Copy, Clone, Debug, PartialEq)]
 pub enum DataSource {
@@ -40,7 +39,11 @@ pub enum DataSource {
 }
 
 pub const TOTAL_DATA_SOURCE_NUMBER: u32 = 3;
-pub const DATA_SOURCE_LIST: [DataSource; TOTAL_DATA_SOURCE_NUMBER as usize] = [DataSource::EtherScan, DataSource::Infura, DataSource::BlockChain,];
+pub const DATA_SOURCE_LIST: [DataSource; TOTAL_DATA_SOURCE_NUMBER as usize] = [
+        DataSource::EtherScan, 
+        DataSource::Infura, 
+        DataSource::BlockChain,
+    ];
 
 impl Default for DataSource {
     fn default() -> Self {DataSource::Invalid}

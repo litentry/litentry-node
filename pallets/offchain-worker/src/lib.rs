@@ -63,12 +63,11 @@ pub mod crypto {
 	}
 }
 
-/// Response stored on chain
-#[derive(Encode, Decode, Default)]
+/// Unique key for query
+#[derive(Encode, Decode, Default, Debug)]
 pub struct QueryKey<AccountId> {
-	/// Response vector for several Ethreum account
 	account: AccountId,
-	blockchain_type: urls::BlockChainType,
+	data_source: urls::DataSource,
 }
 
 pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTransaction<Call<Self>> {
@@ -81,7 +80,7 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 
 decl_storage! {
 	trait Store for Module<T: Trait> as OffchainWorkerModule {
-		/// Record how many claims from Litentry user 
+		/// Record how many balances stored for Litentry user 
 		TotalClaims get(fn total_claims): u64;
 
 		/// Record the accounts send claims in latest block
@@ -98,7 +97,6 @@ decl_storage! {
 
 		/// ocw index in last session
 		OcwAccountIndex get(fn ocw_account_index): map hasher(blake2_128_concat) T::AccountId => Option<u32>;
-
 	}
 }
 
@@ -113,24 +111,19 @@ decl_event!(
 // Errors inform users that something went wrong.
 decl_error! {
 	pub enum Error for Module<T: Trait> {
-		/// Error names should be descriptive.
-		NoneValue,
 		/// Error number parsing.
 		InvalidNumber,
 		/// Account already in claim list.
 		AccountAlreadyInClaimlist,
-		/// No local account for offchain worker to sign extrinsic
-		NoLocalAcctForSigning,
-		/// Error from sign extrinsic
-		OffchainSignedTxError,
 		/// Invalid data source
 		InvalidDataSource,
+		/// Invalid commit block number
+		InvalidCommitBlockNumber,
+		/// Invalid commit slot
+		InvalidCommitSlot,
 	}
 }
 
-// Dispatchable functions allows users to interact with the pallet and invoke state changes.
-// These functions materialize as "extrinsics", which are often compared to transactions.
-// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		// Errors must be initialized if they are used by the pallet.
@@ -139,6 +132,7 @@ decl_module! {
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 
+		// Define const for ocw module
 		const QueryTaskRedudancy: u32 = T::QueryTaskRedudancy::get();
 		const QuerySessionLength: u32 = T::QuerySessionLength::get();
 
@@ -147,7 +141,7 @@ decl_module! {
 		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
 			let account = ensure_signed(origin)?;
 
-			// If the same claim not processed yet
+			// If the same claim already in set
 			ensure!(!<ClaimAccountSet<T>>::contains_key(&account), Error::<T>::AccountAlreadyInClaimlist);
 
 			<ClaimAccountSet<T>>::insert(&account, ());
@@ -157,29 +151,7 @@ decl_module! {
 
 		// Record the balance on chain
 		#[weight = 10_000]
-		fn record_balance(
-			origin,
-			account: T::AccountId,
-			block: T::BlockNumber,
-			btc_balance: Option<u128>,
-			eth_balance: Option<u128>,
-		) -> dispatch::DispatchResult {
-			// Ensuring this is an unsigned tx
-			ensure_none(origin)?;
-			// Record the total claims processed
-			TotalClaims::put(Self::total_claims() + 1);
-			// Set balance 
-			<AccountBalance<T>>::insert(account.clone(), (btc_balance, eth_balance));
-			// Spit out an event and Add to storage
-			// Self::deposit_event(RawEvent::BalanceGot(account, block, btc_balance, eth_balance));
-
-			Ok(())
-		}
-
-		// Record the balance on chain
-		#[weight = 10_000]
 		fn submit_number_signed(origin, account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128)-> dispatch::DispatchResult {
-			// Ensuring this is an unsigned tx
 			let sender = ensure_signed(origin)?;
 
 			// Check data source
@@ -192,8 +164,7 @@ decl_module! {
 			Self::valid_commit_slot(account.clone(), Self::get_ocw_index(Some(&account)), data_source)?;
 
 			// put query result on chain
-			let blockchain_type = urls::data_source_to_block_chain_type(data_source);
-			CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, blockchain_type}, balance);
+			CommitAccountBalance::<T>::insert(&sender, &QueryKey{account, data_source}, balance);
 
 			Ok(())
 		}
@@ -217,6 +188,7 @@ decl_module! {
 			// Clear claim at the first block of a session
 			if index_in_session == 0 {
 				Self::clear_claim();
+			// Do aggregation at last block of a session
 			} else if index_in_session == last_block_number {
 				Self::aggregate_query_result();
 			}
@@ -225,55 +197,114 @@ decl_module! {
 		// TODO block N offchain_worker will be called after block N+1 finalize
 		// Trigger by offchain framework in each block
 		fn offchain_worker(block_number: T::BlockNumber) {
-			debug::info!("ocw offchain_worker {:?}.", block_number);
-
 			let query_session_length: usize = T::QuerySessionLength::get() as usize;
-
-			// Check session length
-			// if query_session_length < 3 {
-			// 	debug::error!("ocw QuerySessionLength is too low as {}.", query_session_length);
-			// 	return
-			// }
-
-			// let last_block_number = query_session_length - 1;
 
 			let index_in_session = block_number.try_into().map_or(query_session_length, |bn| bn % query_session_length);
 
+			// Start query at second block of a session
 			if index_in_session == 1 {
 				Self::start(block_number);
-			} 
-			//else if index_in_session == last_block_number {
-				// Record the account in local storage
-				// let _account = StorageValueRef::persistent(b"offchain-worker::account");
-				// account.set(&acc.id);
-
-				// match account.get::<T::AccountId>() {
-				// 	Some(Some(info)) => {
-				// 		debug::info!("Offchain Worker end successfully.");
-				// 	},
-				// 	_ => {
-				// 		debug::info!("Offchain Worker to get token from local server.");
-				// 	},
-				// }
-			//}		
+			}
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
-	
-	
-		// TotalClaims::put(Self::total_claims() + 1);
-		// <AccountBalance<T>>::insert(account.clone(), (btc_balance, eth_balance));
+	// Main entry for ocw
+	fn query(block_number: T::BlockNumber, info: &urls::TokenInfo) {
+		// Get my ocw account for submit query result
+		let offchain_worker_account = StorageValueRef::persistent(b"offchain-worker::account");
+
+		// Get my ocw index 
+		let ocw_account_index = match offchain_worker_account.get::<T::AccountId>() {
+			Some(Some(account)) => Self::get_ocw_index(Some(&account)),
+			_ => Self::get_ocw_index(None),
+		};
+
+		// ocw length
+		let mut ocw_length = Self::get_ocw_length();
+		if ocw_length == 0 {
+			// No ocw in last round, set it as one, then new ocw query for all accounts and all data source
+			ocw_length = 1;
+		}
+
+		// Loop for each account
+		for item in <ClaimAccountIndex<T>>::iter() {
+			let account: T::AccountId = item.0;
+			let account_index: u32 = item.1;
+
+			let mut source_index = 0;
+			for source in &urls::DATA_SOURCE_LIST {
+				let task_index = urls::TOTAL_DATA_SOURCE_NUMBER * account_index + source_index;
+				if task_index % ocw_length == ocw_account_index {
+					match source {
+						urls::DataSource::EtherScan => {
+							match Self::get_balance_from_etherscan(&account, info) {
+								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::EtherScan, balance),
+								None => ()
+							}
+						},
+						urls::DataSource::Infura => {
+							match Self::get_balance_from_infura(&account, info) {
+								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::Infura, balance),
+								None => ()
+							}
+						},
+						urls::DataSource::BlockChain => {
+							match Self::get_balance_from_blockchain_info(&account, info) {
+								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::BlockChain, balance),
+								None => ()
+							}
+						},
+						_ => (),
+					};
+				}
+				source_index = source_index + 1;
+			}
+		}
+	}
+
+	// Clear claim accounts in last session
+	fn clear_claim() {
+		// Remove all account index in last session
+		<ClaimAccountIndex<T>>::remove_all();
+
+		let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
+
+		// Set account index
+		for (index, account) in accounts.iter().enumerate() {
+			<ClaimAccountIndex<T>>::insert(&account, index as u32);
+		}
+
+		// Remove all claimed accounts
+		<ClaimAccountSet::<T>>::remove_all();
+	}
+
+	// Start new round of offchain worker
+	fn start(block_number: T::BlockNumber) {
+		let local_token = StorageValueRef::persistent(b"offchain-worker::token");
 		
+		match local_token.get::<urls::TokenInfo>() {
+			Some(Some(token)) => {
+				Self::query(block_number, &token);
+			},
+			_ => {
+				// Get token from local server
+				let _ = urls::get_token();
+			},
+		};
+	}
+
 	// Aggregate query result and then record on chain
 	fn aggregate_query_result() {
 		let mut result_map: BTreeMap<(T::AccountId, urls::BlockChainType, u128), u32> = BTreeMap::new();
 		let mut result_key: BTreeMap<(T::AccountId, urls::BlockChainType), Vec<u128>> = BTreeMap::new();
 		// Statistics for result
 		for result in <CommitAccountBalance<T>>::iter() {
+
 			let account: T::AccountId = result.1.account;
-			let block_type: urls::BlockChainType = result.1.blockchain_type;
+			let data_source: urls::DataSource = result.1.data_source;
+			let block_type: urls::BlockChainType = urls::data_source_to_block_chain_type(data_source);
 			let balance: u128 = result.2;
 			let map_key = (account.clone(), block_type, balance);
 
@@ -343,7 +374,12 @@ impl<T: Trait> Module<T> {
 			}
 		}
 
+		// Remove all old ocw index
+		<OcwAccountIndex<T>>::remove_all();
+
 		let mut account_index = 0_u32;
+
+		// Put account into index map for next session
 		for result in <CommitAccountBalance<T>>::iter() {
 			let ocw_account: T::AccountId = result.1.account;
 			match Self::ocw_account_index(ocw_account.clone()) {
@@ -354,46 +390,9 @@ impl<T: Trait> Module<T> {
 				},
 			}
 		}
-	}
 
-	// Clear claim accounts in last session
-	fn clear_claim() {
-		// Remove all account index in last session
-		<ClaimAccountIndex<T>>::remove_all();
-
-		let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
-
-		// Set account index
-		for (index, account) in accounts.iter().enumerate() {
-			<ClaimAccountIndex<T>>::insert(&account, index as u32);
-		}
-
-		// Remove all claimed accounts
-		<ClaimAccountSet::<T>>::remove_all();
-	}
-
-	// Start new round of offchain worker
-	fn start(block_number: T::BlockNumber) {
-		let local_token = StorageValueRef::persistent(b"offchain-worker::token");
-		
-		match local_token.get::<urls::TokenInfo>() {
-			Some(Some(token)) => {
-				// Get all accounts who ask for asset claim
-				let accounts: Vec<T::AccountId> = <ClaimAccountSet::<T>>::iter().map(|(k, _)| k).collect();
-
-				if accounts.len() > 0 {
-					
-					// Update balance after query
-					Self::query(&accounts, block_number, &token);
-					debug::info!("Offchain Worker end successfully.");
-				}
-			},
-			_ => {
-				debug::info!("Offchain Worker to get token from local server.");
-				// Get token from local server
-				let _ = urls::get_token();
-			},
-		};
+		// Remove all ocw commit in this session after aggregation
+		<CommitAccountBalance<T>>::remove_all();
 	}
 
 	fn valid_commit_slot(account: T::AccountId, ocw_index: u32, data_source: urls::DataSource) -> dispatch::DispatchResult {
@@ -429,7 +428,7 @@ impl<T: Trait> Module<T> {
 		while round < query_task_redudancy {
 			// task index in n round
 			let task_index = task_base_index + round * total_task_per_round;
-
+							
 			if task_index >= ocw_index {
 				// if index match return Ok
 				if (task_index - ocw_index) % ocw_length == 0 {
@@ -440,7 +439,7 @@ impl<T: Trait> Module<T> {
 		}
 
 		// no match found, return error
-		Err(<Error<T>>::InvalidDataSource.into())
+		Err(<Error<T>>::InvalidCommitSlot.into())
 	}
 
 	// get claim account index
@@ -467,16 +466,16 @@ impl<T: Trait> Module<T> {
 
 		// Basic check for both block number 
 		if commit_block_number == 0 || current_block_number == 0 {
-			return Err(<Error<T>>::InvalidDataSource.into());
+			return Err(<Error<T>>::InvalidCommitBlockNumber.into());
 		}
 
 		// Compute the scope of session
-		let sesseion_start_block = commit_block_number -  commit_block_number % T::QueryTaskRedudancy::get() ;
-		let sesseion_end_block = sesseion_start_block + T::QueryTaskRedudancy::get();
+		let sesseion_start_block = commit_block_number -  commit_block_number % T::QuerySessionLength::get() ;
+		let sesseion_end_block = sesseion_start_block + T::QuerySessionLength::get();
 
 		// If commit block number out of the scope of session.
 		if current_block_number >= sesseion_end_block || current_block_number <= sesseion_start_block {
-			return Err(<Error<T>>::InvalidDataSource.into());
+			return Err(<Error<T>>::InvalidCommitBlockNumber.into());
 		}
 		
 		Ok(())
@@ -501,58 +500,6 @@ impl<T: Trait> Module<T> {
 	// Get the length of accounts
 	fn get_claim_account_length() -> u32 {
 		<ClaimAccountIndex::<T>>::iter().collect::<Vec<_>>().len() as u32
-	}
-
-	// Main entry for ocw
-	fn query(account_vec: &Vec<T::AccountId>, block_number: T::BlockNumber, info: &urls::TokenInfo) {
-		// Get my ocw account for submit query result
-		let offchain_worker_account = StorageValueRef::persistent(b"offchain-worker::account");
-
-		// Get my ocw index 
-		let ocw_account_index = match offchain_worker_account.get::<T::AccountId>() {
-			Some(Some(account)) => Self::get_ocw_index(Some(&account)),
-			_ => Self::get_ocw_index(None),
-		};
-
-		let mut task_index = 0_u32;
-
-		// ocw length
-		let mut ocw_length = Self::get_ocw_length();
-		if ocw_length == 0 {
-			// No ocw in last round, set it as one, then new ocw query for all accounts and all data source
-			ocw_length = 1;
-		}
-
-		// Loop for each account
-		for account in account_vec {
-			// Loop for each source
-			for source in &urls::DATA_SOURCE_LIST {
-				if task_index % ocw_length == ocw_account_index {
-					match source {
-						urls::DataSource::EtherScan => {
-							match Self::get_balance_from_etherscan(account, info) {
-								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::EtherScan, balance),
-								None => ()
-							}
-						},
-						urls::DataSource::Infura => {
-							match Self::get_balance_from_infura(account, info) {
-								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::Infura, balance),
-								None => ()
-							}
-						},
-						urls::DataSource::BlockChain => {
-							match Self::get_balance_from_blockchain_info(account, info) {
-								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::BlockChain, balance),
-								None => ()
-							}
-						},
-						_ => (),
-					};
-				}
-				task_index = task_index + 1;
-			}
-		}
 	}
 
 	fn get_balance_from_etherscan(account: &T::AccountId, info: &urls::TokenInfo) -> Option<u128> {
@@ -629,6 +576,8 @@ impl<T: Trait> Module<T> {
 
 	// Sign the query result 
 	fn offchain_signed_tx(account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128) {
+		debug::info!("ocw sign tx: account {:?}, block number {:?}, data_source {:?}, balance {:?}", 
+			account.clone(), block_number, data_source, balance);
 		// Get signer from ocw
 		let signer = Signer::<T, T::AuthorityId>::any_account();
 
@@ -720,26 +669,6 @@ impl<T: Trait> Module<T> {
 				Ok(total_balance)
 			},
 			None => Ok(0_u128),
-		}
-	}
-}
-
-#[allow(deprecated)]
-impl<T: Trait> frame_support::unsigned::ValidateUnsigned for Module<T> {
-	type Call = Call<T>;
-
-	#[allow(deprecated)]
-	fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
-
-		match call {
-		Call::record_balance(account, block, btc_balance, eth_balance) => Ok(ValidTransaction {
-			priority: 0,
-			requires: vec![],
-			provides: vec![(account, block, btc_balance, eth_balance).encode()],
-			longevity: TransactionLongevity::max_value(),
-			propagate: true,
-		}),
-		_ => InvalidTransaction::Call.into()
 		}
 	}
 }
