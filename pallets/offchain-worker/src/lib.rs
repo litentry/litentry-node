@@ -14,7 +14,7 @@
 use sp_std::{prelude::*, collections::btree_map::{BTreeMap, Entry,}};
 use core::{convert::TryInto,};
 use frame_system::{
-	ensure_signed, ensure_none,
+	ensure_signed,
 	offchain::{CreateSignedTransaction, Signer, AppCrypto, SendSignedTransaction,},
 };
 use frame_support::{
@@ -23,11 +23,6 @@ use frame_support::{
 	storage::IterableStorageDoubleMap,
 };
 use sp_core::crypto::KeyTypeId;
-use sp_runtime::{
-	transaction_validity::{
-		ValidTransaction, InvalidTransaction, TransactionValidity, TransactionSource, TransactionLongevity,
-	},
-};
 use sp_runtime::offchain::{storage::StorageValueRef,};
 use codec::{Encode, Decode};
 
