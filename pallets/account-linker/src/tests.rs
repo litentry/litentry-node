@@ -33,7 +33,7 @@ fn generate_rsv(sig: &[u8; 65]) -> ([u8; 32], [u8; 32], u8) {
 }
 
 #[test]
-fn test_invalid_block_number_btc() {
+fn test_invalid_expiring_block_number_btc() {
 	new_test_ext().execute_with(|| {
 
 		use bitcoin::network::constants::Network;
@@ -238,7 +238,7 @@ fn test_expired_block_number_eth() {
 }
 
 #[test]
-fn test_invalid_block_number_eth() {
+fn test_invalid_expiring_block_number_eth() {
 	new_test_ext().execute_with(|| {
 
 		let account: AccountId32 = AccountId32::from([0u8; 32]);
