@@ -69,7 +69,7 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Call: From<Call<Self>>;
 	type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
-	type QueryTaskRedudancy: Get<u32>;
+	type QueryTaskRedundancy: Get<u32>;
 	type QuerySessionLength: Get<u32>;
 }
 
@@ -128,7 +128,7 @@ decl_module! {
 		fn deposit_event() = default;
 
 		// Define const for ocw module
-		const QueryTaskRedudancy: u32 = T::QueryTaskRedudancy::get();
+		const QueryTaskRedundancy: u32 = T::QueryTaskRedundancy::get();
 		const QuerySessionLength: u32 = T::QuerySessionLength::get();
 
 		// Request offchain worker to get balance of linked external account
@@ -146,7 +146,7 @@ decl_module! {
 
 		// Record the balance on chain
 		#[weight = 10_000]
-		fn submit_number_signed(origin, account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128)-> dispatch::DispatchResult {
+		fn submit_balance(origin, account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128)-> dispatch::DispatchResult {
 			let sender = ensure_signed(origin)?;
 
 			// Check data source
@@ -411,7 +411,7 @@ impl<T: Trait> Module<T> {
 		let data_source_index = urls::data_source_to_index(data_source);
 		
 		// query task rounds
-		let query_task_redudancy: u32 = T::QueryTaskRedudancy::get();
+		let query_task_redudancy: u32 = T::QueryTaskRedundancy::get();
 
 		// task number per round
 		let total_task_per_round = urls::TOTAL_DATA_SOURCE_NUMBER * Self::get_claim_account_length();
@@ -578,7 +578,7 @@ impl<T: Trait> Module<T> {
 
 		let result = signer.send_signed_transaction(|_acct|
 			// This is the on-chain function
-			Call::submit_number_signed(account.clone(), block_number, data_source, balance)
+			Call::submit_balance(account.clone(), block_number, data_source, balance)
 		);
 
 		// Display error if the signed tx fails.

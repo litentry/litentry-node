@@ -276,7 +276,7 @@ impl pallet_account_linker::Trait for Runtime {
 // >;
 
 parameter_types! {
-	pub const QueryTaskRedudancy: u32 = 3;
+	pub const QueryTaskRedundancy: u32 = 3;
 	pub const QuerySessionLength: u32 = 5;
 }
 
@@ -285,7 +285,7 @@ impl pallet_offchain_worker::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
 	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
-	type QueryTaskRedudancy = QueryTaskRedudancy;
+	type QueryTaskRedundancy = QueryTaskRedundancy;
 	type QuerySessionLength = QuerySessionLength;
 
 }
