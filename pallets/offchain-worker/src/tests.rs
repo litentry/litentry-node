@@ -82,7 +82,7 @@ parameter_types! {
 }
 
 parameter_types! {
-	pub const QueryTaskRedudancy: u32 = 3;
+	pub const QueryTaskRedundancy: u32 = 3;
 	pub const QuerySessionLength: u32 = 5;
 }
 
@@ -90,7 +90,7 @@ impl Trait for TestRuntime {
 	type AuthorityId = crypto::TestAuthId;
 	type Call = Call<TestRuntime>;
 	type Event = TestEvent;
-	type QueryTaskRedudancy = QueryTaskRedudancy;
+	type QueryTaskRedundancy = QueryTaskRedundancy;
 	type QuerySessionLength = QuerySessionLength;
 }
 
