@@ -12,17 +12,6 @@ pub fn btc_addr_from_pk_compressed(pk: [u8; 33]) -> [u8; 25] {
     result
 }
 
-pub fn btc_addr_from_pk_uncompressed(pk: [u8; 65]) -> [u8; 25] {
-    let mut result = [0u8; 25];
-
-    // Now only support P2PKH (Mainnet) prefix = 0
-    result[0] = 0;
-    result[1..21].copy_from_slice(&hash160(&pk));
-    let cs = checksum(&result[0..21]);
-    result[21..25].copy_from_slice(&cs);
-    result
-}
-
 fn checksum(input: &[u8]) -> [u8; 4] {
 	let mut result = [0u8; 4];
 	result.copy_from_slice(&dsha256(input)[0..4]);
