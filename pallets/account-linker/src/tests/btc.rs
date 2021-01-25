@@ -5,16 +5,15 @@ use parity_crypto::Keccak256;
 use frame_support::{assert_ok, assert_noop};
 use sp_runtime::AccountId32;
 
+use bitcoin::network::constants::Network;
+use bitcoin::util::address::Address;
+use bitcoin::util::key;
+use bitcoin::secp256k1::{Secp256k1, Message as BTCMessage};
+use bitcoin::secp256k1::rand::thread_rng;
+
 #[test]
 fn test_invalid_expiring_block_number_btc() {
 	new_test_ext().execute_with(|| {
-
-		use bitcoin::network::constants::Network;
-		use bitcoin::util::address::Address;
-		use bitcoin::util::key;
-		use bitcoin::secp256k1::{Secp256k1, Message as BTCMessage};
-		use bitcoin::secp256k1::rand::thread_rng;
-
 		// Generate random key pair
 		let s = Secp256k1::new();
 		let pair = s.generate_keypair(&mut thread_rng());
@@ -65,13 +64,6 @@ fn test_invalid_expiring_block_number_btc() {
 #[test]
 fn test_btc_link_p2pkh() {
 	new_test_ext().execute_with(|| {
-
-		use bitcoin::network::constants::Network;
-		use bitcoin::util::address::Address;
-		use bitcoin::util::key;
-		use bitcoin::secp256k1::{Secp256k1, Message as BTCMessage};
-		use bitcoin::secp256k1::rand::thread_rng;
-
 		// Generate random key pair
 		let s = Secp256k1::new();
 		let pair = s.generate_keypair(&mut thread_rng());
@@ -124,13 +116,6 @@ fn test_btc_link_p2pkh() {
 #[test]
 fn test_btc_link_p2wpkh() {
 	new_test_ext().execute_with(|| {
-
-		use bitcoin::network::constants::Network;
-		use bitcoin::util::address::Address;
-		use bitcoin::util::key;
-		use bitcoin::secp256k1::{Secp256k1, Message as BTCMessage};
-		use bitcoin::secp256k1::rand::thread_rng;
-
 		// Generate random key pair
 		let s = Secp256k1::new();
 		let pair = s.generate_keypair(&mut thread_rng());
