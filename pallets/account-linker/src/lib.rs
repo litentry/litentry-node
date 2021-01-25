@@ -42,6 +42,7 @@ decl_event!(
 	where
 		AccountId = <T as frame_system::Trait>::AccountId,
 	{
+		EthAddressLinked(AccountId, Vec<u8>),
 		BTCAddressLinked(AccountId, Vec<u8>),
 	}
 );
@@ -114,14 +115,15 @@ decl_module! {
 			let mut addrs = Self::eth_addresses(&account);
 			// NOTE: allow linking `MAX_ETH_LINKS` eth addresses.
 			if (index >= addrs.len()) && (addrs.len() != MAX_ETH_LINKS) {
-				addrs.push(addr);
+				addrs.push(addr.clone());
 			} else if (index >= addrs.len()) && (addrs.len() == MAX_ETH_LINKS) {
-				addrs[MAX_ETH_LINKS - 1] = addr;
+				addrs[MAX_ETH_LINKS - 1] = addr.clone();
 			} else {
-				addrs[index] = addr;
+				addrs[index] = addr.clone();
 			}
 
-			<EthereumLink<T>>::insert(account, addrs);
+			<EthereumLink<T>>::insert(account.clone(), addrs);
+			Self::deposit_event(RawEvent::BTCAddressLinked(account, addr.to_vec()));
 
 			Ok(())
 
