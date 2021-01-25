@@ -12,12 +12,6 @@ pub fn btc_addr_from_pk(pk: &[u8]) -> [u8; 25] {
     result
 }
 
-fn checksum(input: &[u8]) -> [u8; 4] {
-	let mut result = [0u8; 4];
-	result.copy_from_slice(&dsha256(input)[0..4]);
-	result
-}
-
 pub fn hash160(bytes: &[u8]) -> [u8; 20] {
     let mut hasher_sha256 = Sha256::new();
     hasher_sha256.update(bytes);
@@ -29,6 +23,12 @@ pub fn hash160(bytes: &[u8]) -> [u8; 20] {
     let mut ret = [0; 20];
     ret.copy_from_slice(&hasher_ripemd.finalize()[..]);
     ret
+}
+
+fn checksum(input: &[u8]) -> [u8; 4] {
+	let mut result = [0u8; 4];
+	result.copy_from_slice(&dsha256(input)[0..4]);
+	result
 }
 
 /// Computes Bitcoin's double SHA256 hash over a LE byte encoded input
