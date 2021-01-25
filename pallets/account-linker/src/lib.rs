@@ -89,7 +89,6 @@ decl_module! {
 			ensure!((expiring_block_number - current_block_number) < T::BlockNumber::from(EXPIRING_BLOCK_NUMBER_MAX), 
 				Error::<T>::InvalidExpiringBlockNumber);
 
-			// TODO: there is no eth prefix here
 			let mut bytes = b"Link Litentry: ".encode();
 			let mut account_vec = account.encode();
 			let mut expiring_block_number_vec = expiring_block_number.encode();
