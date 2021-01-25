@@ -183,7 +183,7 @@ decl_module! {
 			let pk = secp256k1_ecdsa_recover_compressed(&sig, &msg)
 			.map_err(|_| Error::<T>::EcdsaRecoverFailure)?;
 
-			let mut addr = Vec::new();
+			let mut addr;
 
 			match addr_type {
 				BTCAddrType::Legacy => {
