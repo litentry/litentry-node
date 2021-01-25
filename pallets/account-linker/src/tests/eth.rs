@@ -91,7 +91,7 @@ fn test_invalid_expiring_block_number_eth() {
 }
 
 #[test]
-fn test_unexpected_address() {
+fn test_unexpected_address_eth() {
 	new_test_ext().execute_with(|| {
 
 		let account: AccountId32 = AccountId32::from([72u8; 32]);
