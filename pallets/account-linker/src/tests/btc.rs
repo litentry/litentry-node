@@ -1,4 +1,4 @@
-use crate::mock::*;
+use crate::{mock::*, Event};
 
 use codec::Encode;
 use parity_crypto::Keccak256;
@@ -64,6 +64,9 @@ fn test_invalid_expiring_block_number_btc() {
 #[test]
 fn test_btc_link_p2pkh() {
 	new_test_ext().execute_with(|| {
+
+        run_to_block(1);
+
 		// Generate random key pair
 		let s = Secp256k1::new();
 		let pair = s.generate_keypair(&mut thread_rng());
@@ -95,11 +98,13 @@ fn test_btc_link_p2pkh() {
 		r[..32].copy_from_slice(&rs[..32]);
 		s[..32].copy_from_slice(&rs[32..64]);
 
+        let addr_expected = address.clone().to_string().as_bytes().to_vec();
+
 		assert_ok!(AccountLinker::link_btc(
 			Origin::signed(account.clone()),
 			account.clone(),
 			0,
-			address.clone().to_string().as_bytes().to_vec(),
+			addr_expected.clone(),
 			block_number,
 			r,
 			s,
@@ -108,7 +113,12 @@ fn test_btc_link_p2pkh() {
 
 		let addr_stored = String::from_utf8(AccountLinker::btc_addresses(&account)[0].clone()).unwrap();
 
-		assert_eq!(addr_stored, address.to_string());
+        assert_eq!(addr_stored, address.to_string());
+        
+        assert_eq!(
+            System::events()[0].event,  
+            TestEvent::account_linker( Event::<Test>::BtcAddressLinked(account, addr_expected) )
+        );
 
 	});
 }
@@ -116,6 +126,9 @@ fn test_btc_link_p2pkh() {
 #[test]
 fn test_btc_link_p2wpkh() {
 	new_test_ext().execute_with(|| {
+
+        run_to_block(1);
+
 		// Generate random key pair
 		let s = Secp256k1::new();
 		let pair = s.generate_keypair(&mut thread_rng());
@@ -148,11 +161,13 @@ fn test_btc_link_p2wpkh() {
 		r[..32].copy_from_slice(&rs[..32]);
 		s[..32].copy_from_slice(&rs[32..64]);
 
+        let addr_expected = address.clone().to_string().as_bytes().to_vec();
+
 		assert_ok!(AccountLinker::link_btc(
 			Origin::signed(account.clone()),
 			account.clone(),
 			0,
-			address.clone().to_string().as_bytes().to_vec(),
+			addr_expected.clone(),
 			block_number,
 			r,
 			s,
@@ -161,7 +176,12 @@ fn test_btc_link_p2wpkh() {
 
 		let addr_stored = String::from_utf8(AccountLinker::btc_addresses(&account)[0].clone()).unwrap();
 
-		assert_eq!(addr_stored, address.to_string());
+        assert_eq!(addr_stored, address.to_string());
+        
+        assert_eq!(
+            System::events()[0].event,  
+            TestEvent::account_linker( Event::<Test>::BtcAddressLinked(account, addr_expected) )
+        );
 
 	});
 }

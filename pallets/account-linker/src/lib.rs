@@ -43,7 +43,7 @@ decl_event!(
 		AccountId = <T as frame_system::Trait>::AccountId,
 	{
 		EthAddressLinked(AccountId, Vec<u8>),
-		BTCAddressLinked(AccountId, Vec<u8>),
+		BtcAddressLinked(AccountId, Vec<u8>),
 	}
 );
 
@@ -123,7 +123,7 @@ decl_module! {
 			}
 
 			<EthereumLink<T>>::insert(account.clone(), addrs);
-			Self::deposit_event(RawEvent::BTCAddressLinked(account, addr.to_vec()));
+			Self::deposit_event(RawEvent::EthAddressLinked(account, addr.to_vec()));
 
 			Ok(())
 
@@ -218,7 +218,7 @@ decl_module! {
 			}
 
 			<BitcoinLink<T>>::insert(account.clone(), addrs);
-			Self::deposit_event(RawEvent::BTCAddressLinked(account, addr));
+			Self::deposit_event(RawEvent::BtcAddressLinked(account, addr));
 
 			Ok(())
 
