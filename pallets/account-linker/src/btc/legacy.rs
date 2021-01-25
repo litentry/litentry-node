@@ -71,19 +71,18 @@ mod tests {
 		assert_eq!(hash, hash_expected);
     }
     
-    #[test]
-    fn correct_btc_addr_from_pk_uncompressed() {
-        let pk = decode("0450863AD64A87AE8A2FE83C1AF1A8403CB53F53E486D8511DAD8A04887E5B23522CD470243453A299FA9E77237716103ABC11A1DF38855ED6F2EE187E9C582BA6").unwrap();
-        let mut pk_input = [0u8; 65];
-        pk_input[0..65].copy_from_slice(&pk[0..65]);
+    // #[test]
+    // fn correct_btc_addr_from_pk_uncompressed() {
+    //     let pk = decode("0450863AD64A87AE8A2FE83C1AF1A8403CB53F53E486D8511DAD8A04887E5B23522CD470243453A299FA9E77237716103ABC11A1DF38855ED6F2EE187E9C582BA6").unwrap();
+    //     let mut pk_input = [0u8; 65];
+    //     pk_input[0..65].copy_from_slice(&pk[0..65]);
 
-        let addr = btc_addr_from_pk_uncompressed(pk_input);
+    //     let addr = btc_addr_from_pk_uncompressed(pk_input);
 
-        let addr_expected_hex = decode("00010966776006953D5567439E5E39F86A0D273BEED61967F6").unwrap();
-        let mut addr_expected = [0u8; 25];
-        addr_expected[0..25].copy_from_slice(&addr_expected_hex[0..25]);
-        assert_eq!(addr, addr_expected);
-
-    }
+    //     let addr_expected_hex = decode("00010966776006953D5567439E5E39F86A0D273BEED61967F6").unwrap();
+    //     let mut addr_expected = [0u8; 25];
+    //     addr_expected[0..25].copy_from_slice(&addr_expected_hex[0..25]);
+    //     assert_eq!(addr, addr_expected);
+    // }
 
 }
