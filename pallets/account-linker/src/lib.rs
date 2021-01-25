@@ -187,7 +187,7 @@ decl_module! {
 
 			match addr_type {
 				BTCAddrType::Legacy => {
-					addr = btc::legacy::btc_addr_from_pk_compressed(pk).to_base58();
+					addr = btc::legacy::btc_addr_from_pk(&pk).to_base58();
 				},
 				// Native P2WPKH is a scriptPubKey of 22 bytes. 
 				// It starts with a OP_0, followed by a canonical push of the keyhash (i.e. 0x0014{20-byte keyhash})
