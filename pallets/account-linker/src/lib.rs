@@ -42,7 +42,7 @@ decl_event!(
 	where
 		AccountId = <T as frame_system::Trait>::AccountId,
 	{
-		SomethingStored(u32, AccountId),
+		BTCAddressLinked(AccountId, Vec<u8>),
 	}
 );
 
@@ -208,14 +208,15 @@ decl_module! {
 			let mut addrs = Self::btc_addresses(&account);
 			// NOTE: allow linking `MAX_BTC_LINKS` btc addresses.
 			if (index >= addrs.len()) && (addrs.len() != MAX_BTC_LINKS) {
-				addrs.push(addr);
+				addrs.push(addr.clone());
 			} else if (index >= addrs.len()) && (addrs.len() == MAX_BTC_LINKS) {
-				addrs[MAX_BTC_LINKS - 1] = addr;
+				addrs[MAX_BTC_LINKS - 1] = addr.clone();
 			} else {
-				addrs[index] = addr;
+				addrs[index] = addr.clone();
 			}
 
-			<BitcoinLink<T>>::insert(account, addrs);
+			<BitcoinLink<T>>::insert(account.clone(), addrs);
+			Self::deposit_event(RawEvent::BTCAddressLinked(account, addr));
 
 			Ok(())
 
