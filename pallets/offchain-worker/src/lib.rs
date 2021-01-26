@@ -233,21 +233,21 @@ impl<T: Trait> Module<T> {
 				let task_index = urls::TOTAL_DATA_SOURCE_NUMBER * account_index + source_index;
 				if task_index % ocw_length == ocw_account_index {
 					match source {
-						urls::DataSource::EtherScan => {
+						urls::DataSource::Eth_EtherScan => {
 							match Self::get_balance_from_etherscan(&account, info) {
-								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::EtherScan, balance),
+								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::Eth_EtherScan, balance),
 								None => ()
 							}
 						},
-						urls::DataSource::Infura => {
+						urls::DataSource::Eth_Infura => {
 							match Self::get_balance_from_infura(&account, info) {
-								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::Infura, balance),
+								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::Eth_Infura, balance),
 								None => ()
 							}
 						},
-						urls::DataSource::BlockChain => {
+						urls::DataSource::Btc_BlockChain => {
 							match Self::get_balance_from_blockchain_info(&account, info) {
-								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::BlockChain, balance),
+								Some(balance) => Self::offchain_signed_tx(account.clone(), block_number, urls::DataSource::Btc_BlockChain, balance),
 								None => ()
 							}
 						},
