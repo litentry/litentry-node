@@ -17,6 +17,7 @@ mod tests;
 mod btc;
 mod util_eth;
 
+const EXPIRING_BLOCK_NUMBER_MAX: u32 = 10 * 60 * 24 * 30; // 30 days for 6s per block
 pub const MAX_ETH_LINKS: usize = 3;
 pub const MAX_BTC_LINKS: usize = 3;
 
@@ -54,6 +55,7 @@ decl_error! {
 		UnexpectedEthMsgLength,
 		InvalidBTCAddress,
 		InvalidBTCAddressLength,
+		InvalidExpiringBlockNumber,
 	}
 }
 
@@ -83,6 +85,8 @@ decl_module! {
 
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
+			ensure!((expiring_block_number - current_block_number) < T::BlockNumber::from(EXPIRING_BLOCK_NUMBER_MAX), 
+				Error::<T>::InvalidExpiringBlockNumber);
 
 			// TODO: there is no eth prefix here
 			let mut bytes = b"Link Litentry: ".encode();
@@ -140,6 +144,8 @@ decl_module! {
 
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
+			ensure!((expiring_block_number - current_block_number) < T::BlockNumber::from(EXPIRING_BLOCK_NUMBER_MAX), 
+				Error::<T>::InvalidExpiringBlockNumber);
 
 			// TODO: we may enlarge this 2
 			if addr_expected.len() < 2 {
