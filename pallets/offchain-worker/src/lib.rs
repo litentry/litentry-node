@@ -11,20 +11,21 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use sp_std::{prelude::*, collections::btree_map::{BTreeMap, Entry,}};
+use sp_std::{prelude::*, fmt::Debug, collections::btree_map::{BTreeMap, Entry,}};
 use core::{convert::TryInto,};
 use frame_system::{
 	ensure_signed,
 	offchain::{CreateSignedTransaction, Signer, AppCrypto, SendSignedTransaction,},
 };
 use frame_support::{
-	debug, dispatch, decl_module, decl_storage, decl_event, decl_error,
-	ensure, storage::IterableStorageMap, traits::Get, weights::Weight,
-	storage::IterableStorageDoubleMap,
+	debug, dispatch, decl_module, decl_storage, decl_event, decl_error, Parameter, 
+	ensure, storage::IterableStorageMap, weights::Weight, storage::IterableStorageDoubleMap,
+	traits::{Currency, Imbalance, OnUnbalanced, Get},
 };
 use sp_core::crypto::KeyTypeId;
 use sp_runtime::offchain::{storage::StorageValueRef,};
-use codec::{Encode, Decode};
+use sp_runtime::traits::{AtLeast32BitUnsigned, Member, MaybeSerializeDeserialize,};
+use codec::{Codec, Encode, Decode};
 
 mod urls;
 mod utils;
@@ -65,13 +66,26 @@ pub struct QueryKey<AccountId> {
 	data_source: urls::DataSource,
 }
 
+
+type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+type PositiveImbalanceOf<T> =
+	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::PositiveImbalance;
+
 pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTransaction<Call<Self>> {
+	type Balance: Parameter + Member + AtLeast32BitUnsigned + Codec + Default + Copy +
+		MaybeSerializeDeserialize + Debug;
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 	type Call: From<Call<Self>>;
 	type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 	type QueryTaskRedundancy: Get<u32>;
 	type QuerySessionLength: Get<u32>;
+	/// Currency type for this pallet.
+	type Currency: Currency<Self::AccountId>;
+	/// Handler for the unbalanced increment when rewarding (minting rewards)
+	type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
+	type OcwQueryReward: Get<<<Self as Trait>::Currency as Currency<<Self as frame_system::Trait>::AccountId>>::Balance>;
 }
+
 
 decl_storage! {
 	trait Store for Module<T: Trait> as OffchainWorkerModule {
@@ -130,6 +144,7 @@ decl_module! {
 		// Define const for ocw module
 		const QueryTaskRedundancy: u32 = T::QueryTaskRedundancy::get();
 		const QuerySessionLength: u32 = T::QuerySessionLength::get();
+		const OcwQueryReward: BalanceOf<T> = T::OcwQueryReward::get();
 
 		// Request offchain worker to get balance of linked external account
 		#[weight = 10_000]
@@ -373,10 +388,27 @@ impl<T: Trait> Module<T> {
 		<OcwAccountIndex<T>>::remove_all();
 
 		let mut account_index = 0_u32;
+		let mut total_imbalance = <PositiveImbalanceOf<T>>::zero();
 
 		// Put account into index map for next session
 		for result in <CommitAccountBalance<T>>::iter() {
-			let ocw_account: T::AccountId = result.1.account;
+			let ocw_account: T::AccountId = result.0;
+			let query_account: T::AccountId = result.1.account;
+			let data_source: urls::DataSource = result.1.data_source;
+			let block_type: urls::BlockChainType = urls::data_source_to_block_chain_type(data_source);
+			let committed_balance: u128 = result.2;
+			// reward the ocw
+			match record_map.get(&(query_account, block_type)) {
+				Some(balance) => {
+					// balance matched
+					if *balance == committed_balance {
+						let r = T::Currency::deposit_into_existing(&ocw_account, T::OcwQueryReward::get()).ok();
+						total_imbalance.maybe_subsume(r);
+					}
+				},
+				None => {},
+			}
+			// update index for next session
 			match Self::ocw_account_index(ocw_account.clone()) {
 				Some(_) => {},
 				None => {
@@ -385,6 +417,7 @@ impl<T: Trait> Module<T> {
 				},
 			}
 		}
+		T::Reward::on_unbalanced(total_imbalance);
 
 		// Remove all ocw commit in this session after aggregation
 		<CommitAccountBalance<T>>::remove_all();
