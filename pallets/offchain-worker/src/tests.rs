@@ -21,6 +21,8 @@ use sp_runtime::{
 
 use crate as OffchainWorker;
 use account_linker;
+use utils;
+use urls;
 
 impl_outer_origin! {
 	pub enum Origin for TestRuntime where system = frame_system {}
@@ -79,10 +81,17 @@ parameter_types! {
 	pub const UnsignedPriority: u64 = 100;
 }
 
+parameter_types! {
+	pub const QueryTaskRedundancy: u32 = 3;
+	pub const QuerySessionLength: u32 = 5;
+}
+
 impl Trait for TestRuntime {
-	// type AuthorityId = crypto::TestAuthId;
+	type AuthorityId = crypto::TestAuthId;
 	type Call = Call<TestRuntime>;
 	type Event = TestEvent;
+	type QueryTaskRedundancy = QueryTaskRedundancy;
+	type QuerySessionLength = QuerySessionLength;
 }
 
 impl account_linker::Trait for TestRuntime {
@@ -157,17 +166,17 @@ impl ExternalityBuilder {
 #[test]
 fn test_chars_to_u128() {
 	let correct_balance = vec!['5', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
-	assert_eq!(Ok(500000000000000000_u128), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
+	assert_eq!(Ok(500000000000000000_u128), utils::chars_to_u128(&correct_balance));
 
 	let correct_balance = vec!['a', '2'];
-	assert_eq!(Err("Wrong u128 balance data format"), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
+	assert_eq!(Err("Wrong u128 balance data format"), utils::chars_to_u128(&correct_balance));
 
 	let correct_balance = vec!['0', 'x', 'f', 'e'];
-	assert_eq!(Ok(254_u128), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
+	assert_eq!(Ok(254_u128), utils::chars_to_u128(&correct_balance));
 
 	// Corner case check
 	let correct_balance = vec!['0', 'x'];
-	assert_eq!(Ok(0_u128), <Module<TestRuntime>>::chars_to_u128(&correct_balance));
+	assert_eq!(Ok(0_u128), utils::chars_to_u128(&correct_balance));
 }
 
 #[test]
@@ -199,7 +208,7 @@ fn test_parse_etherscan_balances() {
 			{"account":"0xBE0eB53F46cd790Cd13851d5EFf43D12404d33E8","balance":"21"}
 		]
 	}"#;
-	assert_eq!(Some(vec![12, 21]), <Module<TestRuntime>>::parse_etherscan_balances(double_balances));
+	assert_eq!(Some(vec![12, 21]), urls::parse_etherscan_balances(double_balances));
 }
 
 #[test]
@@ -215,7 +224,7 @@ fn test_parse_etherscan_balances_2() {
 		]
 	}"#;
 
-	let token_info: EtherScanResponse = serde_json::from_str(&double_balances).unwrap();
+	let token_info: urls::EtherScanResponse = serde_json::from_str(&double_balances).unwrap();
 	assert_eq!(token_info.status, "1".as_bytes().to_vec());
 	assert_eq!(token_info.result[0].balance, "12".as_bytes().to_vec());
 }
@@ -227,7 +236,7 @@ fn test_parse_blockchain_info_balances() {
 		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":30,"n_tx":2635,"total_received":6835384571},
 		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
 	}"#;
-	let result = <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances);
+	let result = urls::parse_blockchain_info_balances(double_balances);
 	assert_eq!(true, (Some(vec![30, 1220]) == result || Some(vec![1220, 30]) == result));
 
 	// Test case should fail because fraction of the first balance value is non zero
@@ -236,7 +245,7 @@ fn test_parse_blockchain_info_balances() {
 		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":30.5,"n_tx":2635,"total_received":6835384571},
 		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
 	}"#;
-	assert_eq!(Some(vec![1220]), <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+	assert_eq!(Some(vec![1220]), urls::parse_blockchain_info_balances(double_balances));
 
 	// Test case should fail because first balance value is negative
 	let double_balances = r#"
@@ -244,7 +253,7 @@ fn test_parse_blockchain_info_balances() {
 		"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa":{"final_balance":-30,"n_tx":2635,"total_received":6835384571},
 		"15EW3AMRm2yP6LEF5YKKLYwvphy3DmMqN6":{"final_balance":1220,"n_tx":4,"total_received":310925609}
 	}"#;
-	assert_eq!(Some(vec![1220]), <Module<TestRuntime>>::parse_blockchain_info_balances(double_balances));
+	assert_eq!(Some(vec![1220]), urls::parse_blockchain_info_balances(double_balances));
 }
 
 #[test]
@@ -256,7 +265,7 @@ fn test_parse_infura_balances() {
 	]
 	"#;
 
-	assert_eq!(Some(vec![5000000000000000000, 255]), <Module<TestRuntime>>::parse_infura_balances(double_balances));
+	assert_eq!(Some(vec![5000000000000000000, 255]), urls::parse_infura_balances(double_balances));
 }
 
 #[test]
@@ -267,7 +276,7 @@ fn test_parse_infura_balances_2() {
 		{"jsonrpc":"2.0","id":1,"result":"0xff"}
 	]
 	"#;
-	let token_info: Vec<InfuraBalance> = serde_json::from_str(double_balances).unwrap();
+	let token_info: Vec<urls::InfuraBalance> = serde_json::from_str(double_balances).unwrap();
 	assert_eq!(token_info[0].id, 1);
 
 }

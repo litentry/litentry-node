@@ -268,10 +268,26 @@ impl pallet_account_linker::Trait for Runtime {
 	type Event = Event;
 }
 
+// We need to define the Transaction signer for that using the Key definition
+// type SubmitPFTransaction = frame_system::offchain::TransactionSubmitter<
+// 	pallet_offchain_worker::crypto::Public,
+// 	Runtime,
+// 	UncheckedExtrinsic
+// >;
+
+parameter_types! {
+	pub const QueryTaskRedundancy: u32 = 3;
+	pub const QuerySessionLength: u32 = 5;
+}
+
 /// Configure the template pallet in pallets/template.
 impl pallet_offchain_worker::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
+	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
+	type QueryTaskRedundancy = QueryTaskRedundancy;
+	type QuerySessionLength = QuerySessionLength;
+
 }
 
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
@@ -349,7 +365,7 @@ construct_runtime!(
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		// Include the custom logic from the template pallet in the runtime.
 		AccountLinkerModule: pallet_account_linker::{Module, Call, Storage, Event<T>},
-		OffchainWorkerModule: pallet_offchain_worker::{Module, Call, Storage, Event<T>, ValidateUnsigned},
+		OffchainWorkerModule: pallet_offchain_worker::{Module, Call, Storage, Event<T>},
 	}
 );
 
