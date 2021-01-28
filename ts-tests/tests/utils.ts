@@ -156,8 +156,8 @@ export async function initApiPromise(wsProvider: WsProvider) {
 
 export function describeLitentry(title: string, specFilename: string, cb: (context: {api: ApiPromise, alice: KeyringPair}) => void, provider?: string) {
 	describe(title, function() {
-    // Set timeout to 120 seconds
-    this.timeout(120000);
+    // Set timeout to 300 seconds
+    this.timeout(300000);
 
     let tokenServer: ChildProcess;
     let binary: ChildProcess;
