@@ -132,7 +132,20 @@ export async function initApiPromise(wsProvider: WsProvider) {
 	console.log(`Initialization done`);
 	console.log(`Genesis at block: ${api.genesisHash.toHex()}`);
 
+  // Get keyring of Alice
 	const alice = keyring.addFromUri('//Alice', { name: 'Alice default' });
+
+  // Insert ocw session key
+  const resInsertKey = api.rpc.author.insertKey(
+    "ocw!",
+    "loop high amazing chat tennis auto denial attend type quit liquid tonight",
+    "0x8c35b97c56099cf3b5c631d1f296abbb11289857e74a8f60936290080d56da6d"
+  );
+
+  // Transfer tokens from Alice to ocw account
+  const txHash = await api.tx.balances
+  .transfer('5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX', 100000)
+  .signAndSend(alice);
 
 	const { nonce, data: balance } = await api.query.system.account(alice.address);
 	console.log(`Alice Substrate Account: ${alice.address}`);
@@ -143,8 +156,8 @@ export async function initApiPromise(wsProvider: WsProvider) {
 
 export function describeLitentry(title: string, specFilename: string, cb: (context: {api: ApiPromise, alice: KeyringPair}) => void, provider?: string) {
 	describe(title, function() {
-    // Set timeout to 90 seconds
-    this.timeout(90000);
+    // Set timeout to 120 seconds
+    this.timeout(120000);
 
     let tokenServer: ChildProcess;
     let binary: ChildProcess;
