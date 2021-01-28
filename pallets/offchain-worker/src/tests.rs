@@ -31,6 +31,7 @@ impl_outer_origin! {
 impl_outer_event! {
 	pub enum TestEvent for TestRuntime {
 		frame_system<T>,
+		pallet_balances<T>,
 		OffchainWorker<T>,
 		account_linker<T>,
 	}
@@ -69,10 +70,26 @@ impl frame_system::Trait for TestRuntime {
 	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = ();
 	type PalletInfo = ();
-	type AccountData = ();
+	type AccountData = pallet_balances::AccountData<u128>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+}
+
+parameter_types! {
+	pub const ExistentialDeposit: u128 = 500;
+}
+
+impl pallet_balances::Trait for TestRuntime {
+	type MaxLocks = ();
+	/// The type for recording an account's balance.
+	type Balance = u128;
+	/// The ubiquitous event type.
+	type Event = TestEvent;
+	type DustRemoval = ();
+	type ExistentialDeposit = ExistentialDeposit;
+	type AccountStore = System;
+	type WeightInfo = ();
 }
 
 pub type TestExtrinsic = TestXt<Call<TestRuntime>, ()>;
@@ -84,14 +101,19 @@ parameter_types! {
 parameter_types! {
 	pub const QueryTaskRedundancy: u32 = 3;
 	pub const QuerySessionLength: u32 = 5;
+	pub const OcwQueryReward: u128 = 1;
 }
 
 impl Trait for TestRuntime {
 	type AuthorityId = crypto::TestAuthId;
 	type Call = Call<TestRuntime>;
 	type Event = TestEvent;
+	type Balance = u128;
 	type QueryTaskRedundancy = QueryTaskRedundancy;
 	type QuerySessionLength = QuerySessionLength;
+	type Currency = Balances;
+	type Reward = ();
+	type OcwQueryReward = OcwQueryReward;
 }
 
 impl account_linker::Trait for TestRuntime {
@@ -129,6 +151,7 @@ where
 }
 
 pub type System = frame_system::Module<TestRuntime>;
+pub type Balances = pallet_balances::Module<TestRuntime>;
 // pub type OffchainWorker = Module<TestRuntime>;
 
 pub struct ExternalityBuilder;
