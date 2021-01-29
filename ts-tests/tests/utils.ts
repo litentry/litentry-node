@@ -154,7 +154,7 @@ async function sendTokenToOcw(api: ApiPromise, alice: KeyringPair) {
   console.log(`Transfer tokens from Alice to ocw account`);
   return new Promise<{ block: string }>(async (resolve, reject) => {
     const unsub = await api.tx.balances
-      .transfer("5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX", 100000)
+      .transfer("5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX", 1000000000000000)
       .signAndSend(alice, (result) => {
         console.log(`Current status is ${result.status}`);
         if (result.status.isInBlock) {

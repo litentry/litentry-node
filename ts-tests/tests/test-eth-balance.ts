@@ -147,11 +147,11 @@ describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
   })
 
   step("Retrieving assets information of Alice", async function () {
-    // First wait for 30s ~ 5 blocks
-    await new Promise(r => setTimeout(r, 30000));
+    // First wait for 36s ~ 6 blocks
+    await new Promise(r => setTimeout(r, 36000));
     const balances = await get_assets(context.api, context.alice);
     // TODO fetch real time balance and compare it here
-    expect(balances.toString()).to.equal(`[0,"0x00000000000000004563918244f40000"]`);
+    expect(balances.toString()).to.equal(`[null,"0x00000000000000004563918244f40000"]`);
   })
 
 });
