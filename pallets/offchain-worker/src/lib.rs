@@ -1,13 +1,13 @@
-//! # Offchain Worker 
-//! The pallet is responsible for get the external assets claim from the extrinsic and then query and aggregate the 
+//! # Offchain Worker
+//! The pallet is responsible for get the external assets claim from the extrinsic and then query and aggregate the
 //! balance (btc and eth) according to linked external accounts in account linker pallet. Offchain worker get the data
 //! from most popular websire like etherscan, infura and blockinfo. After get the balance, Offchain worker emit the event
 //! with balance info and store them on chain for on-chain query.
-//! 
+//!
 //! ## API token
-//! The offchain worker need the API token to query data from third party data provider. Currently, offchain worker get 
+//! The offchain worker need the API token to query data from third party data provider. Currently, offchain worker get
 //! the API tokens from a local server. Then store the API tokens in offchain worder local storage.
-//! 
+//!
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -75,7 +75,7 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 
 decl_storage! {
 	trait Store for Module<T: Trait> as OffchainWorkerModule {
-		/// Record how many balances stored for Litentry user 
+		/// Record how many balances stored for Litentry user
 		TotalClaims get(fn total_claims): u64;
 
 		/// Record the accounts send claims in latest block
@@ -86,7 +86,7 @@ decl_storage! {
 
 		/// Record account's btc and ethereum balance
 		AccountBalance get(fn account_balance): map hasher(blake2_128_concat) T::AccountId => (Option<u128>, Option<u128>);
-		
+
 		/// Query result on chain
 		CommitAccountBalance get(fn commit_account_balance): double_map hasher(blake2_128_concat) T::AccountId, hasher(blake2_128_concat) QueryKey<T::AccountId> => Option<u128>;
 
@@ -177,7 +177,7 @@ decl_module! {
 			debug::info!("ocw on_finalize.{:?}.", current_block_number);
 
 			let query_session_length: usize = T::QuerySessionLength::get() as usize;
-			let index_in_session = current_block_number.try_into().map_or(query_session_length, |bn| bn % query_session_length);
+			let index_in_session = TryInto::<usize>::try_into(current_block_number).map_or(query_session_length, |bn| bn % query_session_length);
 			let last_block_number = query_session_length - 1;
 
 			// Clear claim at the first block of a session
@@ -194,7 +194,7 @@ decl_module! {
 		fn offchain_worker(block_number: T::BlockNumber) {
 			let query_session_length: usize = T::QuerySessionLength::get() as usize;
 
-			let index_in_session = block_number.try_into().map_or(query_session_length, |bn| bn % query_session_length);
+			let index_in_session = TryInto::<usize>::try_into(block_number).map_or(query_session_length, |bn| bn % query_session_length);
 
 			// Start query at second block of a session
 			if index_in_session == 1 {
@@ -210,7 +210,7 @@ impl<T: Trait> Module<T> {
 		// Get my ocw account for submit query result
 		let offchain_worker_account = StorageValueRef::persistent(b"offchain-worker::account");
 
-		// Get my ocw index 
+		// Get my ocw index
 		let ocw_account_index = match offchain_worker_account.get::<T::AccountId>() {
 			Some(Some(account)) => Self::get_ocw_index(Some(&account)),
 			_ => Self::get_ocw_index(None),
@@ -278,7 +278,7 @@ impl<T: Trait> Module<T> {
 	// Start new round of offchain worker
 	fn start(block_number: T::BlockNumber) {
 		let local_token = StorageValueRef::persistent(b"offchain-worker::token");
-		
+
 		match local_token.get::<urls::TokenInfo>() {
 			Some(Some(token)) => {
 				Self::query(block_number, &token);
@@ -348,7 +348,7 @@ impl<T: Trait> Module<T> {
 						if *frequence > most_times {
 							most_times = *frequence;
 							most_value = *balance;
-						} 
+						}
 					},
 					None => {},
 				}
@@ -357,12 +357,12 @@ impl<T: Trait> Module<T> {
 
 			// Update balance on chain
 			if block_type == urls::BlockChainType::ETH {
-				<AccountBalance<T>>::mutate(account, 
+				<AccountBalance<T>>::mutate(account,
 					|value| value.1 = Some(most_value)
 				);
 				TotalClaims::put(Self::total_claims() + 1);
 			} else if block_type == urls::BlockChainType::BTC {
-				<AccountBalance<T>>::mutate(account, 
+				<AccountBalance<T>>::mutate(account,
 					|value| value.0 = Some(most_value)
 				);
 				TotalClaims::put(Self::total_claims() + 1);
@@ -399,8 +399,8 @@ impl<T: Trait> Module<T> {
 		// if no ocw works in last session, then all new ocw valid for all accounts with all data source
 		if ocw_length == 0 {
 			return Ok(())
-		}	
-		
+		}
+
 		// ensure ocw index is valid
 		ensure!(ocw_index <= ocw_length, <Error<T>>::InvalidDataSource);
 
@@ -409,7 +409,7 @@ impl<T: Trait> Module<T> {
 
 		// get data source index
 		let data_source_index = urls::data_source_to_index(data_source);
-		
+
 		// query task rounds
 		let query_task_redudancy: u32 = T::QueryTaskRedundancy::get();
 
@@ -423,7 +423,7 @@ impl<T: Trait> Module<T> {
 		while round < query_task_redudancy {
 			// task index in n round
 			let task_index = task_base_index + round * total_task_per_round;
-							
+
 			if task_index >= ocw_index {
 				// if index match return Ok
 				if (task_index - ocw_index) % ocw_length == 0 {
@@ -445,7 +445,7 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	// Check data source 
+	// Check data source
 	fn valid_data_source(data_source: urls::DataSource) -> dispatch::DispatchResult {
 		match data_source {
 			urls::DataSource::Invalid => Err(<Error<T>>::InvalidDataSource.into()),
@@ -453,13 +453,13 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	// Check the block number 
+	// Check the block number
 	fn valid_commit_block_number(commit_block_number: T::BlockNumber, current_block_number: T::BlockNumber) -> dispatch::DispatchResult {
 		let zero_block: u32 = 0;
-		let commit_block_number: u32 = commit_block_number.try_into().map_or(zero_block, |block_number| block_number as u32);
-		let current_block_number: u32 = current_block_number.try_into().map_or(zero_block, |block_number| block_number as u32);
+		let commit_block_number: u32 = TryInto::<usize>::try_into(commit_block_number).map_or(zero_block, |block_number| block_number as u32);
+		let current_block_number: u32 = TryInto::<usize>::try_into(current_block_number).map_or(zero_block, |block_number| block_number as u32);
 
-		// Basic check for both block number 
+		// Basic check for both block number
 		if commit_block_number == 0 || current_block_number == 0 {
 			return Err(<Error<T>>::InvalidCommitBlockNumber.into());
 		}
@@ -472,7 +472,7 @@ impl<T: Trait> Module<T> {
 		if current_block_number >= sesseion_end_block || current_block_number <= sesseion_start_block {
 			return Err(<Error<T>>::InvalidCommitBlockNumber.into());
 		}
-		
+
 		Ok(())
 	}
 
@@ -512,7 +512,7 @@ impl<T: Trait> Module<T> {
 					};
 
 					Self::fetch_balances(
-						<account_linker::EthereumLink<T>>::get(account), 
+						<account_linker::EthereumLink<T>>::get(account),
 						urls::HttpRequest::GET(get),
 						&urls::parse_etherscan_balances).ok()
 				},
@@ -522,7 +522,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	fn get_balance_from_infura(account: &T::AccountId, info: &urls::TokenInfo) -> Option<u128> {
-		
+
 		if info.infura.len() == 0 {
 			None
 		} else {
@@ -560,8 +560,8 @@ impl<T: Trait> Module<T> {
 							postfix: "",
 							api_token: token,
 					};
-					Self::fetch_balances(Vec::new(), 
-						urls::HttpRequest::GET(get), 
+					Self::fetch_balances(Vec::new(),
+						urls::HttpRequest::GET(get),
 						&urls::parse_blockchain_info_balances).ok()
 				},
 				Err(_) => None,
@@ -569,9 +569,9 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
-	// Sign the query result 
+	// Sign the query result
 	fn offchain_signed_tx(account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128) {
-		debug::info!("ocw sign tx: account {:?}, block number {:?}, data_source {:?}, balance {:?}", 
+		debug::info!("ocw sign tx: account {:?}, block number {:?}, data_source {:?}, balance {:?}",
 			account.clone(), block_number, data_source, balance);
 		// Get signer from ocw
 		let signer = Signer::<T, T::AuthorityId>::any_account();
@@ -598,7 +598,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	// Generic function to fetch balance for specific link type
-	fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest, 
+	fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest,
 		parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
 		// Return if no account linked
 		if wallet_accounts.len() == 0 {
@@ -607,7 +607,7 @@ impl<T: Trait> Module<T> {
 
 		let result: Vec<u8> = match request {
 			urls::HttpRequest::GET(get_req) => {
-				// Compose the get request URL 
+				// Compose the get request URL
 				let mut link: Vec<u8> = Vec::new();
 				link.extend(get_req.prefix.as_bytes());
 
@@ -646,11 +646,11 @@ impl<T: Trait> Module<T> {
 				}
 				body.extend(post_req.postfix.as_bytes());
 
-				// Fetch json response via http post 
+				// Fetch json response via http post
 				urls::fetch_json_http_post(&link[..], &body[..]).map_err(|_| Error::<T>::InvalidNumber)?
 			},
 		};
-		
+
 		let response = sp_std::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidNumber)?;
 		let balances = parser(response);
 
