@@ -132,7 +132,15 @@ export async function initApiPromise(wsProvider: WsProvider) {
 	console.log(`Initialization done`);
 	console.log(`Genesis at block: ${api.genesisHash.toHex()}`);
 
+  // Get keyring of Alice
 	const alice = keyring.addFromUri('//Alice', { name: 'Alice default' });
+
+  // Insert ocw session key
+  const resInsertKey = api.rpc.author.insertKey(
+    "ocw!",
+    "loop high amazing chat tennis auto denial attend type quit liquid tonight",
+    "0x8c35b97c56099cf3b5c631d1f296abbb11289857e74a8f60936290080d56da6d"
+  );
 
 	const { nonce, data: balance } = await api.query.system.account(alice.address);
 	console.log(`Alice Substrate Account: ${alice.address}`);
@@ -141,10 +149,36 @@ export async function initApiPromise(wsProvider: WsProvider) {
 	return { api, alice };
 }
 
+async function sendTokenToOcw(api: ApiPromise, alice: KeyringPair) {
+  // Transfer tokens from Alice to ocw account
+  console.log(`Transfer tokens from Alice to ocw account`);
+  return new Promise<{ block: string }>(async (resolve, reject) => {
+    const unsub = await api.tx.balances
+      .transfer("5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX", 1000000000000000)
+      .signAndSend(alice, (result) => {
+        console.log(`Current status is ${result.status}`);
+        if (result.status.isInBlock) {
+          console.log(
+            `Transaction included at blockHash ${result.status.asInBlock}`
+          );
+        } else if (result.status.isFinalized) {
+          console.log(
+            `Transaction finalized at blockHash ${result.status.asFinalized}`
+          );
+          unsub();
+          resolve({
+            block: result.status.asFinalized.toString(),
+          });
+        }
+      });
+  });
+}
+
+
 export function describeLitentry(title: string, specFilename: string, cb: (context: {api: ApiPromise, alice: KeyringPair}) => void, provider?: string) {
 	describe(title, function() {
-    // Set timeout to 90 seconds
-    this.timeout(90000);
+    // Set timeout to 120 seconds
+    this.timeout(120000);
 
     let tokenServer: ChildProcess;
     let binary: ChildProcess;
@@ -159,6 +193,7 @@ export function describeLitentry(title: string, specFilename: string, cb: (conte
       const initApi = await initApiPromise(wsProvider);
       context.api = initApi.api;
       context.alice = initApi.alice;
+      return sendTokenToOcw(initApi.api, initApi.alice);
 		});
 
 		after(async function () {

@@ -20,51 +20,6 @@ const testEthAddress = "[0x4d88dc5d528a33e4b8be579e9476715f60060582]";
 
 const msgPrefix: string = "Link Litentry: ";
 
-// Setup the API and Alice Account
-async function init() {
-	console.log(`Initiating the API (ignore message "Unable to resolve type B..." and "Unknown types found...")`);
-
-	// Initiate the polkadot API.
-	const api = await ApiPromise.create({
-		provider: wsProvider,
-		types: {
-			// mapping the actual specified address format
-			Address: "AccountId",
-			// mapping the lookup
-			LookupSource: "AccountId",
-			Account: {
-				nonce: "U256",
-				balance: "U256"
-			},
-			Transaction: {
-				nonce: "U256",
-				action: "String",
-				gas_price: "u64",
-				gas_limit: "u64",
-				value: "U256",
-				input: "Vec<u8>",
-				signature: "Signature"
-			},
-			Signature: {
-				v: "u64",
-				r: "H256",
-				s: "H256"
-			}
-		}
-  });
-
-	console.log(`Initialization done`);
-	console.log(`Genesis at block: ${api.genesisHash.toHex()}`);
-
-	const alice = keyring.addFromUri('//Alice', { name: 'Alice default' });
-
-	const { nonce, data: balance } = await api.query.system.account(alice.address);
-	console.log(`Alice Substrate Account: ${alice.address}`);
-	console.log(`Alice Substrate Account (nonce: ${nonce}) balance, free: ${balance.free.toHex()}`);
-
-	return { api, alice };
-}
-
 // Create Ethereum Link from ALICE
 async function eth_link(api: ApiPromise, alice: KeyringPair) {
 
@@ -192,9 +147,11 @@ describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
   })
 
   step("Retrieving assets information of Alice", async function () {
+    // First wait for 36s ~ 6 blocks
+    await new Promise(r => setTimeout(r, 36000));
     const balances = await get_assets(context.api, context.alice);
     // TODO fetch real time balance and compare it here
-    // expect(balances.toString()).to.equal(`[0,"0x00000000000000004563918244f40000"]`);
+    expect(balances.toString()).to.equal(`[null,"0x00000000000000004563918244f40000"]`);
   })
 
 });
