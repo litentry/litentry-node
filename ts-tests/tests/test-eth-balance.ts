@@ -5,7 +5,7 @@ import { TypeRegistry } from "@polkadot/types/create";
 // Import Web3 from 'web3';
 import { expect } from "chai";
 import { step } from "mocha-steps";
-import { describeLitentry } from "./utils"
+import { OCR_ACCOUNT, describeLitentry } from "./utils"
 
 const privateKey = '0xe82c0c4259710bb0d6cf9f9e8d0ad73419c1278a14d375e5ca691e7618103011';
 
@@ -147,11 +147,19 @@ describeLitentry("Test Ethereum Link and Balance Fetch", ``, (context) =>{
   })
 
   step("Retrieving assets information of Alice", async function () {
-    // First wait for 36s ~ 6 blocks
+    // Retrieve ocw account balance
+    const { nonce: old_n, data: old_balance } = await context.api.query.system.account(OCR_ACCOUNT);
+
+    // Wait for 36s ~ 6 blocks
     await new Promise(r => setTimeout(r, 36000));
     const balances = await get_assets(context.api, context.alice);
     // TODO fetch real time balance and compare it here
     expect(balances.toString()).to.equal(`[null,"0x00000000000000004563918244f40000"]`);
+
+    // Retrieve ocw account balance
+    const { nonce: new_n, data: balance } = await context.api.query.system.account(OCR_ACCOUNT);
+    console.log(`new is ${balance.free.toString()}  old is ${old_balance.free}`);
+    console.log(`difference is ${(Number(balance.free.toString()) - Number(old_balance.free.toString())).toString()}`);
   })
 
 });

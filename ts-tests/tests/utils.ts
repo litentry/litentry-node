@@ -9,6 +9,9 @@ export const BINARY_PATH = `../target/debug/litentry-node`;
 export const APIKEY_SERVER_PATH = `../target/debug/litentry-token-server`;
 export const SPAWNING_TIME = 30000;
 
+// OCW account
+export const OCR_ACCOUNT = "5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX";
+
 // Provider is set to localhost for development
 const wsProvider = new WsProvider("ws://localhost:9944");
 
@@ -154,7 +157,7 @@ async function sendTokenToOcw(api: ApiPromise, alice: KeyringPair) {
   console.log(`Transfer tokens from Alice to ocw account`);
   return new Promise<{ block: string }>(async (resolve, reject) => {
     const unsub = await api.tx.balances
-      .transfer("5FEYX9NES9mAJt1Xg4WebmHWywxyeGQK8G3oEBXtyfZrRePX", 1000000000000000)
+      .transfer(OCR_ACCOUNT, 1000000000000000)
       .signAndSend(alice, (result) => {
         console.log(`Current status is ${result.status}`);
         if (result.status.isInBlock) {
