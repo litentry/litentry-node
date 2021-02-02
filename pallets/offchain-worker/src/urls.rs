@@ -31,18 +31,18 @@ pub enum DataSource {
     /// invalid
     Invalid,
     /// etherscan
-    Eth_EtherScan,
+    EthEtherScan,
     /// infura
-    Eth_Infura,
+    EthInfura,
     /// blockchain
-    Btc_BlockChain,
+    BtcBlockChain,
 }
 
 pub const TOTAL_DATA_SOURCE_NUMBER: u32 = 3;
 pub const DATA_SOURCE_LIST: [DataSource; TOTAL_DATA_SOURCE_NUMBER as usize] = [
-        DataSource::Eth_EtherScan, 
-        DataSource::Eth_Infura, 
-        DataSource::Btc_BlockChain,
+        DataSource::EthEtherScan, 
+        DataSource::EthInfura, 
+        DataSource::BtcBlockChain,
     ];
 
 impl Default for DataSource {
@@ -53,9 +53,9 @@ impl Default for DataSource {
 pub fn data_source_to_index(data_source: DataSource) -> u32 {
     match data_source {
         DataSource::Invalid => u32::MAX, 
-        DataSource::Eth_EtherScan => 0,
-        DataSource::Eth_Infura => 1,
-        DataSource::Btc_BlockChain => 2,
+        DataSource::EthEtherScan => 0,
+        DataSource::EthInfura => 1,
+        DataSource::BtcBlockChain => 2,
     }
 }
 
@@ -63,9 +63,9 @@ pub fn data_source_to_index(data_source: DataSource) -> u32 {
 pub fn data_source_to_block_chain_type(data_source: DataSource) -> BlockChainType {
     match data_source {
         DataSource::Invalid => BlockChainType::Invalid, 
-        DataSource::Eth_EtherScan => BlockChainType::ETH,
-        DataSource::Eth_Infura => BlockChainType::ETH,
-        DataSource::Btc_BlockChain => BlockChainType::BTC,
+        DataSource::EthEtherScan => BlockChainType::ETH,
+        DataSource::EthInfura => BlockChainType::ETH,
+        DataSource::BtcBlockChain => BlockChainType::BTC,
     }
 }
 
