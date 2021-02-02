@@ -4046,6 +4046,7 @@ dependencies = [
  "frame-system",
  "hex",
  "pallet-account-linker",
+ "pallet-balances",
  "parity-scale-codec",
  "parking_lot 0.10.2",
  "serde",

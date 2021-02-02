@@ -113,6 +113,9 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
+pub const MILLICENTS: Balance = 1_000_000_000;
+pub const CENTS: Balance = 1_000 * MILLICENTS;
+pub const DOLLARS: Balance = 100 * CENTS;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -278,16 +281,20 @@ impl pallet_account_linker::Trait for Runtime {
 parameter_types! {
 	pub const QueryTaskRedundancy: u32 = 3;
 	pub const QuerySessionLength: u32 = 5;
+	pub const OcwQueryReward: Balance = 1 * DOLLARS;
 }
 
 /// Configure the template pallet in pallets/template.
 impl pallet_offchain_worker::Trait for Runtime {
 	type Event = Event;
 	type Call = Call;
+	type Balance = Balance;
 	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
 	type QueryTaskRedundancy = QueryTaskRedundancy;
 	type QuerySessionLength = QuerySessionLength;
-
+	type Currency = Balances;
+	type Reward = ();
+	type OcwQueryReward = OcwQueryReward;
 }
 
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
