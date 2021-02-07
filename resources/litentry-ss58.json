@@ -1,12 +1,17 @@
 {
   "name": "Litentry",
-  "id": "Litentry",
+  "id": "litentry",
   "chainType": "Live",
   "bootNodes": [
     "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWK1LPQrNgeNw1MGwxNJAvdiBbzbp1nWEauCLBRQN8YiHp"
   ],
   "telemetryEndpoints": null,
-  "protocolId": "Litentry",
+  "protocolId": "litentry",
+  "properties": {
+    "ss58Format": 31,
+    "tokenDecimals": 12,
+    "tokenSymbol": "LIT"
+  },
   "consensusEngine": null,
   "lightSyncState": null,
   "genesis": {
@@ -17,28 +22,28 @@
       },
       "palletAura": {
         "authorities": [
-          "5FcSUaxhJYorc3PVBAnn54S1qvzXA7wSWEGJpLVnUkkhbQYF",
-          "5GH1T1gwqEdxS15qMRu7GJvEKKMZHj3SqMJ3q478Wi9k2BcV",
-          "5CXAnVojkGRNH1yWDLaUYqjm7jX2t8okfoae4KwBvdaRksHN",
-          "5HT6AfVY3RgbrkGFpgf7DPBMMEQqPBDVetgogj1aTnigG4XZ"
+          "49xBdg1G5MBrtPwPDK7Wv9WLjbRHZ71iRtAs3pRUPMDLVocf",
+          "4Ackc6jWc31xiMdjPaDr7PzZCynKgi7im1Cc4Y2pRJcNvjo8",
+          "46ruwarJX4oNZNXQFUuDPvp61PwoH7t2bTVCHorsqE34fDS2",
+          "4BnqKkY6pE4c96p9rpyr4UFgEtqbnAHmaYbMvCwGNPBKAigR"
         ]
       },
       "palletGrandpa": {
         "authorities": [
           [
-            "5FcSUaxhJYorc3PVBAnn54S1qvzXA7wSWEGJpLVnUkkhbQYF",
+            "49xBdg1G5MBrtPwPDK7Wv9WLjbRHZ71iRtAs3pRUPMDLVocf",
             1
           ],
           [
-            "5GH1T1gwqEdxS15qMRu7GJvEKKMZHj3SqMJ3q478Wi9k2BcV",
+            "4Ackc6jWc31xiMdjPaDr7PzZCynKgi7im1Cc4Y2pRJcNvjo8",
             1
           ],
           [
-            "5CXAnVojkGRNH1yWDLaUYqjm7jX2t8okfoae4KwBvdaRksHN",
+            "46ruwarJX4oNZNXQFUuDPvp61PwoH7t2bTVCHorsqE34fDS2",
             1
           ],
           [
-            "5HT6AfVY3RgbrkGFpgf7DPBMMEQqPBDVetgogj1aTnigG4XZ",
+            "4BnqKkY6pE4c96p9rpyr4UFgEtqbnAHmaYbMvCwGNPBKAigR",
             1
           ]
         ]
@@ -46,25 +51,25 @@
       "palletBalances": {
         "balances": [
           [
-            "5FcSUaxhJYorc3PVBAnn54S1qvzXA7wSWEGJpLVnUkkhbQYF",
+            "49xBdg1G5MBrtPwPDK7Wv9WLjbRHZ71iRtAs3pRUPMDLVocf",
             1152921504606846976
           ],
           [
-            "5GH1T1gwqEdxS15qMRu7GJvEKKMZHj3SqMJ3q478Wi9k2BcV",
+            "4Ackc6jWc31xiMdjPaDr7PzZCynKgi7im1Cc4Y2pRJcNvjo8",
             1152921504606846976
           ],
           [
-            "5CXAnVojkGRNH1yWDLaUYqjm7jX2t8okfoae4KwBvdaRksHN",
+            "46ruwarJX4oNZNXQFUuDPvp61PwoH7t2bTVCHorsqE34fDS2",
             1152921504606846976
           ],
           [
-            "5HT6AfVY3RgbrkGFpgf7DPBMMEQqPBDVetgogj1aTnigG4XZ",
+            "4BnqKkY6pE4c96p9rpyr4UFgEtqbnAHmaYbMvCwGNPBKAigR",
             1152921504606846976
           ]
         ]
       },
       "palletSudo": {
-        "key": "5FcSUaxhJYorc3PVBAnn54S1qvzXA7wSWEGJpLVnUkkhbQYF"
+        "key": "49xBdg1G5MBrtPwPDK7Wv9WLjbRHZ71iRtAs3pRUPMDLVocf"
       }
     }
   }

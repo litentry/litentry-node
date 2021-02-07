@@ -14,6 +14,7 @@ account-linker:
 litentry-token-server:
 	cargo build --package $(call pkgid, litentry-token-server)
 
+
 test-node:
 	cargo test --package $(call pkgid, litentry-node)
 test-runtime:
@@ -27,6 +28,33 @@ test-litentry-token-server:
 
 test:
 	cargo test
+
+# benchmark build
+build-benchmark:
+	cd node; cargo build --features runtime-benchmarks --release
+	cd runtime; cargo build --features runtime-benchmarks --release
+	cd pallets/offchain-worker; cargo build --features runtime-benchmarks --release
+	cd pallets/account-linker; cargo build --features runtime-benchmarks --release
+
+benchmark-account-linker:
+	target/release/litentry-node benchmark \
+	--chain dev \
+	--execution=wasm  \
+	--wasm-execution=compiled \
+	--pallet account-linker \
+	--extrinsic do_something \
+	--steps 20 \
+	--repeat 50
+
+benchmark-offchain-worker:
+	target/release/litentry-node benchmark \
+	--chain dev \
+	--execution=wasm  \
+	--wasm-execution=compiled \
+	--pallet offchain-worker \
+	--extrinsic do_something \
+	--steps 20 \
+	--repeat 50
 
 fmt:
 	cargo fmt

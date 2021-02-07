@@ -26,6 +26,7 @@ frame-support = { default-features = false, version = '2.0.1' }
 frame-system = { default-features = false, version = '2.0.1' }
 sp-arithmetic = { default-features = false, version = "2.0.1" }
 account-linker = {path = "../account-linker", package = "pallet-account-linker", default-features = false}
+frame-benchmarking = {default-features = false, version = '2.0.1', optional = true}
 
 [dev-dependencies]
 sp-core = { default-features = false, version = '2.0.1' }
@@ -33,7 +34,6 @@ sp-io = { default-features = false, version = '2.0.1' }
 sp-runtime = { default-features = false, version = '2.0.1' }
 pallet-balances = { default-features = false, version = '2.0.1' }
 hex = "0.4.2"
-
 
 [features]
 default = ['std']
@@ -48,3 +48,4 @@ std = [
     "sp-std/std",
     "account-linker/std",
 ]
+runtime-benchmarks = ["frame-benchmarking"]

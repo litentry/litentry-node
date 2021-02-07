@@ -136,6 +136,7 @@ parameter_types! {
 		.saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
 	pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
 	pub const Version: RuntimeVersion = VERSION;
+	pub const SS58Prefix: u8 = 31;
 }
 
 // Configure FRAME pallets to include in runtime.
@@ -195,6 +196,7 @@ impl frame_system::Trait for Runtime {
 	type AccountData = pallet_balances::AccountData<Balance>;
 	/// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = ();
+	// type SS58Prefix = SS58Prefix;
 }
 
 impl pallet_aura::Trait for Runtime {

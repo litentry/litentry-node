@@ -72,7 +72,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		// Protocol ID
 		None,
 		// Properties
-		None,
+		Some(litentry_properties()),
 		// Extensions
 		None,
 	))
