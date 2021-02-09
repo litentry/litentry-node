@@ -42,7 +42,7 @@ benchmark-account-linker:
 	--execution=wasm  \
 	--wasm-execution=compiled \
 	--pallet pallet_account_linker \
-	--extrinsic do_something \
+	--extrinsic link_eth \
 	--steps 20 \
 	--repeat 50
 
