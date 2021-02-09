@@ -47,5 +47,6 @@ std = [
     "sp-runtime/std",
     "sp-std/std",
     "account-linker/std",
+    "frame-benchmarking/std"
 ]
 runtime-benchmarks = ["frame-benchmarking"]

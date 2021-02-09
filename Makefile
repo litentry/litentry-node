@@ -52,7 +52,7 @@ benchmark-offchain-worker:
 	--execution=wasm  \
 	--wasm-execution=compiled \
 	--pallet offchain-worker \
-	--extrinsic do_something \
+	--extrinsic asset_claim \
 	--steps 20 \
 	--repeat 50
 

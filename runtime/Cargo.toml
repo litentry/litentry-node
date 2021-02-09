@@ -67,7 +67,7 @@ runtime-benchmarks = [
     'pallet-timestamp/runtime-benchmarks',
     'sp-runtime/runtime-benchmarks',
     # 'pallet-account-linker/runtime-benchmarks',
-    # 'pallet-offchain-worker/runtime-benchmarks',
+    'pallet-offchain-worker/runtime-benchmarks',
 ]
 std = [
     'codec/std',

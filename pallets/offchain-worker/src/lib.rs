@@ -29,7 +29,7 @@ use codec::{Codec, Encode, Decode};
 
 mod urls;
 mod utils;
-mod benchmarking;
+pub mod benchmarking;
 
 #[cfg(test)]
 mod tests;
