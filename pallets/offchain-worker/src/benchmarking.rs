@@ -1,4 +1,4 @@
-#![cfg(feature = "runtime-benchmarking")]
+#![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
 
@@ -10,10 +10,11 @@ benchmarks!{
     _ {
         let b in 1 .. 1000 => ();
     }
+
     asset_claim {
         let b in ...;
         let caller = account("caller", 0, 0);
         
-    }: _ (RawOrigin::Signed(caller),)
+    }: _ (RawOrigin::Signed(caller))
 }
 

@@ -41,7 +41,7 @@ benchmark-account-linker:
 	--chain dev \
 	--execution=wasm  \
 	--wasm-execution=compiled \
-	--pallet account-linker \
+	--pallet pallet_account_linker \
 	--extrinsic do_something \
 	--steps 20 \
 	--repeat 50
@@ -51,7 +51,7 @@ benchmark-offchain-worker:
 	--chain dev \
 	--execution=wasm  \
 	--wasm-execution=compiled \
-	--pallet offchain-worker \
+	--pallet pallet_offchain_worker \
 	--extrinsic asset_claim \
 	--steps 20 \
 	--repeat 50

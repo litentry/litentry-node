@@ -148,7 +148,7 @@ decl_module! {
 		const OcwQueryReward: BalanceOf<T> = T::OcwQueryReward::get();
 
 		// Request offchain worker to get balance of linked external account
-		#[weight = 10_000]
+		#[weight = T::DbWeight::get().writes(1) + 44_660_000]
 		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
 			let account = ensure_signed(origin)?;
 
