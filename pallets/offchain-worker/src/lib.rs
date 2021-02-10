@@ -147,8 +147,9 @@ decl_module! {
 		const QuerySessionLength: u32 = T::QuerySessionLength::get();
 		const OcwQueryReward: BalanceOf<T> = T::OcwQueryReward::get();
 
+		// benchmark is 21 us
 		// Request offchain worker to get balance of linked external account
-		#[weight = T::DbWeight::get().writes(1) + 44_660_000]
+		#[weight = T::DbWeight::get().writes(1) + 21_000_000]
 		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
 			let account = ensure_signed(origin)?;
 

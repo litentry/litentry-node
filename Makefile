@@ -32,9 +32,6 @@ test:
 # benchmark build
 build-benchmark:
 	cd node; cargo build --features runtime-benchmarks --release
-	cd runtime; cargo build --features runtime-benchmarks --release
-	cd pallets/offchain-worker; cargo build --features runtime-benchmarks --release
-	cd pallets/account-linker; cargo build --features runtime-benchmarks --release
 
 benchmark-account-linker:
 	target/release/litentry-node benchmark \
