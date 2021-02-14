@@ -131,6 +131,10 @@ decl_error! {
 		InvalidCommitBlockNumber,
 		/// Invalid commit slot
 		InvalidCommitSlot,
+		/// Invalid account index
+		InvalidAccountIndex,
+		/// Offchain worker index overflow
+		OffchainWorkerIndexOverflow,
 	}
 }
 
@@ -147,9 +151,9 @@ decl_module! {
 		const QuerySessionLength: u32 = T::QuerySessionLength::get();
 		const OcwQueryReward: BalanceOf<T> = T::OcwQueryReward::get();
 
-		// benchmark is 21 us
+		// benchmark is 16 us in personal mac 
 		// Request offchain worker to get balance of linked external account
-		#[weight = T::DbWeight::get().writes(1) + 21_000_000]
+		#[weight = T::DbWeight::get().writes(1) + 16_000_000]
 		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
 			let account = ensure_signed(origin)?;
 
@@ -437,7 +441,7 @@ impl<T: Trait> Module<T> {
 		}
 
 		// ensure ocw index is valid
-		ensure!(ocw_index <= ocw_length, <Error<T>>::InvalidDataSource);
+		ensure!(ocw_index <= ocw_length, <Error<T>>::OffchainWorkerIndexOverflow);
 
 		// ensure data source is valid
 		ensure!(data_source != urls::DataSource::Invalid, <Error<T>>::InvalidDataSource);
@@ -476,7 +480,7 @@ impl<T: Trait> Module<T> {
 	fn get_account_index(account: T::AccountId) -> Result<u32, Error<T>> {
 		match Self::claim_account_index(account) {
 			Some(index) => Ok(index),
-			None => Err(<Error<T>>::InvalidDataSource.into()),
+			None => Err(<Error<T>>::InvalidAccountIndex.into()),
 		}
 	}
 

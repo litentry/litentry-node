@@ -39,9 +39,11 @@ benchmark-account-linker:
 	--execution=wasm  \
 	--wasm-execution=compiled \
 	--pallet pallet_account_linker \
-	--extrinsic link_eth \
+	--extrinsic link_btc \
+	--heap-pages=4096 \
 	--steps 20 \
-	--repeat 50
+	--repeat 50 \
+	--output=./pallets/account_linker/src/weights.rs
 
 benchmark-offchain-worker:
 	target/release/litentry-node benchmark \
@@ -49,9 +51,11 @@ benchmark-offchain-worker:
 	--execution=wasm  \
 	--wasm-execution=compiled \
 	--pallet pallet_offchain_worker \
-	--extrinsic asset_claim \
+	--extrinsic submit_balance \
+	--heap-pages=4096 \
 	--steps 20 \
-	--repeat 50
+	--repeat 50 \
+	--output=./pallets/offchain-worker/src/weights.rs
 
 fmt:
 	cargo fmt
