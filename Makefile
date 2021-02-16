@@ -14,7 +14,6 @@ account-linker:
 litentry-token-server:
 	cargo build --package $(call pkgid, litentry-token-server)
 
-
 test-node:
 	cargo test --package $(call pkgid, litentry-node)
 test-runtime:
