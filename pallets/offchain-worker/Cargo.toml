@@ -29,9 +29,6 @@ account-linker = {path = "../account-linker", package = "pallet-account-linker",
 frame-benchmarking = {default-features = false, version = '2.0.1', optional = true}
 
 [dev-dependencies]
-sp-core = { default-features = false, version = '2.0.1' }
-sp-io = { default-features = false, version = '2.0.1' }
-sp-runtime = { default-features = false, version = '2.0.1' }
 pallet-balances = { default-features = false, version = '2.0.1' }
 hex = "0.4.2"
 
