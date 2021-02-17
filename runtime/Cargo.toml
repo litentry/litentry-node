@@ -27,7 +27,6 @@ serde = { features = ['derive'], optional = true, version = '1.0.119' }
 # local dependencies
 pallet-account-linker = { path = '../pallets/account-linker', default-features = false, version = '2.0.1' }
 pallet-offchain-worker = { path = '../pallets/offchain-worker', default-features = false, version = '2.0.1' }
-
 # Substrate dependencies
 frame-benchmarking = { default-features = false, optional = true, version = '2.0.1' }
 frame-executive = { default-features = false, version = '2.0.1' }
@@ -66,6 +65,8 @@ runtime-benchmarks = [
     'pallet-balances/runtime-benchmarks',
     'pallet-timestamp/runtime-benchmarks',
     'sp-runtime/runtime-benchmarks',
+    'pallet-account-linker/runtime-benchmarks',
+    'pallet-offchain-worker/runtime-benchmarks',
 ]
 std = [
     'codec/std',

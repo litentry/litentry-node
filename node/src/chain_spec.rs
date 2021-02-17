@@ -1,4 +1,5 @@
-use sp_core::{Pair, Public, sr25519};
+use sp_core::{Pair, Public, sr25519, crypto::UncheckedInto,};
+// use hex_literal::hex;
 use litentry_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
 	SudoConfig, SystemConfig, WASM_BINARY, Signature
@@ -6,7 +7,8 @@ use litentry_runtime::{
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{Verify, IdentifyAccount};
-use sc_service::ChainType;
+use sc_service::{ChainType, Properties};
+use hex_literal::hex;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -71,7 +73,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 		// Protocol ID
 		None,
 		// Properties
-		None,
+		Some(litentry_properties()),
 		// Extensions
 		None,
 	))
@@ -154,4 +156,73 @@ fn testnet_genesis(
 			key: root_key,
 		}),
 	}
+}
+
+/// Properties for Litentry.
+pub fn litentry_properties() -> Properties {
+	let mut properties = Properties::new();
+
+	properties.insert("ss58Format".into(), 31.into());
+	properties.insert("tokenDecimals".into(), 12.into());
+	properties.insert("tokenSymbol".into(), "LIT".into());
+
+	properties
+}
+
+pub fn litentry_config() -> Result<ChainSpec, String> {
+	let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
+
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Litentry",
+		// ID
+		"Litentry",
+		ChainType::Live,
+		move || testnet_genesis(
+			wasm_binary,
+			// Initial PoA authorities
+			vec![
+				// 49xBdg1G5MBrtPwPDK7Wv9WLjbRHZ71iRtAs3pRUPMDLVocf
+				(
+					hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].unchecked_into(),
+					hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].unchecked_into(),
+				),
+				// 4Ackc6jWc31xiMdjPaDr7PzZCynKgi7im1Cc4Y2pRJcNvjo8
+				(
+					hex!["ba53195d0b128e94778f49c20933773ef9068ec322260d6991552cb078012a15"].unchecked_into(),
+					hex!["ba53195d0b128e94778f49c20933773ef9068ec322260d6991552cb078012a15"].unchecked_into(),
+				),
+				// 46ruwarJX4oNZNXQFUuDPvp61PwoH7t2bTVCHorsqE34fDS2
+				(
+					hex!["142f074ccc4a78a0cdc584713f689bf3ed8d4bb279f6161d0bc066c1b4aff418"].unchecked_into(),
+					hex!["142f074ccc4a78a0cdc584713f689bf3ed8d4bb279f6161d0bc066c1b4aff418"].unchecked_into(),
+				),
+				// 4BnqKkY6pE4c96p9rpyr4UFgEtqbnAHmaYbMvCwGNPBKAigR
+				(
+					hex!["ee3fab5285345a4551bd90df2c063a48cf9adb5a5f1310776b5e2a5747bbd12f"].unchecked_into(),
+					hex!["ee3fab5285345a4551bd90df2c063a48cf9adb5a5f1310776b5e2a5747bbd12f"].unchecked_into(),
+				),
+			],
+			// Sudo account
+			hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].into(),
+			// Pre-funded accounts
+			vec![
+				hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].into(),
+				hex!["ba53195d0b128e94778f49c20933773ef9068ec322260d6991552cb078012a15"].into(),
+				hex!["142f074ccc4a78a0cdc584713f689bf3ed8d4bb279f6161d0bc066c1b4aff418"].into(),
+				hex!["ee3fab5285345a4551bd90df2c063a48cf9adb5a5f1310776b5e2a5747bbd12f"].into(),
+			],
+			true,
+		),
+		// Bootnodes
+		vec![],
+		// Telemetry
+		None,
+		// Protocol ID
+		Some("Litentry"),
+		// Properties
+		Some(litentry_properties()),
+		// Extensions
+		None,
+	))
 }
