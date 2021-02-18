@@ -3958,6 +3958,7 @@ dependencies = [
  "parity-crypto",
  "parity-scale-codec 2.0.0",
  "ripemd160 0.9.1",
+ "serde",
  "sha2 0.9.3",
  "sp-core",
  "sp-io",

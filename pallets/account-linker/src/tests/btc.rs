@@ -114,10 +114,10 @@ fn test_btc_link_p2pkh() {
 		let addr_stored = String::from_utf8(AccountLinker::btc_addresses(&account)[0].clone()).unwrap();
 
         assert_eq!(addr_stored, address.to_string());
-        
+
         assert_eq!(
-            System::events()[0].event,  
-            TestEvent::account_linker( Event::<Test>::BtcAddressLinked(account, addr_expected) )
+            System::events()[0].event,
+            Event::account_linker( Event::<Test>::BtcAddressLinked(account, addr_expected) )
         );
 
 	});
@@ -177,10 +177,10 @@ fn test_btc_link_p2wpkh() {
 		let addr_stored = String::from_utf8(AccountLinker::btc_addresses(&account)[0].clone()).unwrap();
 
         assert_eq!(addr_stored, address.to_string());
-        
+
         assert_eq!(
-            System::events()[0].event,  
-            TestEvent::account_linker( Event::<Test>::BtcAddressLinked(account, addr_expected) )
+            System::events()[0].event,
+            Event::account_linker( Event::<Test>::BtcAddressLinked(account, addr_expected) )
         );
 
 	});

@@ -153,9 +153,9 @@ fn test_insert_eth_address() {
 
             assert_eq!(AccountLinker::eth_addresses(&account).len(), i+1);
             assert_eq!(
-                System::events()[i].event,  
-                TestEvent::account_linker( Event::<Test>::EthAddressLinked(
-                    account.clone(), 
+                System::events()[i].event,
+                Event::account_linker( Event::<Test>::EthAddressLinked(
+                    account.clone(),
                     key_pair.address().to_fixed_bytes().to_vec())
                 )
             );

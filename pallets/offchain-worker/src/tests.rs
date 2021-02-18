@@ -8,49 +8,46 @@ use sp_core::{
 		OffchainExt, TransactionPoolExt,
 	},
 	sr25519::{self, Signature},
-	testing::KeyStore,
-	traits::KeystoreExt,
 	H256,
 };
 use sp_io::TestExternalities;
 use sp_runtime::{
 	testing::{Header, TestXt},
 	traits::{BlakeTwo256, IdentityLookup, Verify},
-	Perbill,
 };
 
-use crate as OffchainWorker;
+use crate as offchain_worker;
 use account_linker;
 use utils;
 use urls;
 
-impl_outer_origin! {
-	pub enum Origin for TestRuntime where system = frame_system {}
-}
-
-impl_outer_event! {
-	pub enum TestEvent for TestRuntime {
-		frame_system<T>,
-		pallet_balances<T>,
-		OffchainWorker<T>,
-		account_linker<T>,
-	}
-}
-
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct TestRuntime;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
+// Configure a mock runtime to test the pallet.
+frame_support::construct_runtime!(
+	pub enum TestRuntime where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Storage, Event<T>},
+		OffchainWorker: offchain_worker::{Module, Call, Storage, Event<T>},
+	}
+);
 parameter_types! {
 	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: u32 = 1_000_000;
-	pub const MaximumBlockLength: u32 = 10 * 1_000_000;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
+	pub const SS58Prefix: u8 = 42;
 }
 
 // The TestRuntime implements two pallet/frame traits: system, and simple_event
-impl frame_system::Trait for TestRuntime {
+impl frame_system::Config for TestRuntime {
 	type BaseCallFilter = ();
 	type Origin = Origin;
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
 	type Index = u64;
 	type Call = ();
 	type BlockNumber = u64;
@@ -61,26 +58,20 @@ impl frame_system::Trait for TestRuntime {
 	type Header = Header;
 	type Event = TestEvent;
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = MaximumBlockWeight;
-	type MaximumBlockLength = MaximumBlockLength;
-	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PalletInfo;
 	type AccountData = pallet_balances::AccountData<u128>;
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type SS58Prefix = SS58Prefix;
 }
 
 parameter_types! {
 	pub const ExistentialDeposit: u128 = 500;
 }
 
-impl pallet_balances::Trait for TestRuntime {
+impl pallet_balances::Config for TestRuntime {
 	type MaxLocks = ();
 	/// The type for recording an account's balance.
 	type Balance = u128;
@@ -104,10 +95,10 @@ parameter_types! {
 	pub const OcwQueryReward: u128 = 1;
 }
 
-impl Trait for TestRuntime {
+impl system::Config for TestRuntime {
 	type AuthorityId = crypto::TestAuthId;
 	type Call = Call<TestRuntime>;
-	type Event = TestEvent;
+	type Event = Event;
 	type Balance = u128;
 	type QueryTaskRedundancy = QueryTaskRedundancy;
 	type QuerySessionLength = QuerySessionLength;
@@ -116,8 +107,8 @@ impl Trait for TestRuntime {
 	type OcwQueryReward = OcwQueryReward;
 }
 
-impl account_linker::Trait for TestRuntime {
-	type Event = TestEvent;
+impl offchain_worker::Config for TestRuntime {
+	type Event = Event;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
@@ -127,8 +118,8 @@ where
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
 		call: Call<TestRuntime>,
 		_public: <Signature as Verify>::Signer,
-		_account: <TestRuntime as frame_system::Trait>::AccountId,
-		index: <TestRuntime as frame_system::Trait>::Index,
+		_account: <TestRuntime as frame_system::Config>::AccountId,
+		index: <TestRuntime as frame_system::Config>::Index,
 	) -> Option<(
 		Call<TestRuntime>,
 		<TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
@@ -154,37 +145,40 @@ pub type System = frame_system::Module<TestRuntime>;
 pub type Balances = pallet_balances::Module<TestRuntime>;
 // pub type OffchainWorker = Module<TestRuntime>;
 
-pub struct ExternalityBuilder;
-
-impl ExternalityBuilder {
-	pub fn build() -> (
-		TestExternalities,
-		Arc<RwLock<PoolState>>,
-		Arc<RwLock<OffchainState>>,
-	) {
-		const PHRASE: &str =
-			"expire stage crawl shell boss any story swamp skull yellow bamboo copy";
-
-		let (offchain, offchain_state) = testing::TestOffchainExt::new();
-		let (pool, pool_state) = testing::TestTransactionPoolExt::new();
-		let keystore = KeyStore::new();
-		keystore
-			.write()
-			.sr25519_generate_new(KEY_TYPE, Some(&format!("{}/hunter1", PHRASE)))
-			.unwrap();
-
-		let storage = frame_system::GenesisConfig::default()
-			.build_storage::<TestRuntime>()
-			.unwrap();
-
-		let mut t = TestExternalities::from(storage);
-		t.register_extension(OffchainExt::new(offchain));
-		t.register_extension(TransactionPoolExt::new(pool));
-		t.register_extension(KeystoreExt(keystore));
-		t.execute_with(|| System::set_block_number(1));
-		(t, pool_state, offchain_state)
-	}
-}
+// FIXME
+// Han: testing module has been removed from sp-core since 3.0.0, thus this part cannot be built any more.
+//      as it's not used right now, I will comment out it temporarily
+//pub struct ExternalityBuilder;
+//
+//impl ExternalityBuilder {
+//	pub fn build() -> (
+//		TestExternalities,
+//		Arc<RwLock<PoolState>>,
+//		Arc<RwLock<OffchainState>>,
+//	) {
+//		const PHRASE: &str =
+//			"expire stage crawl shell boss any story swamp skull yellow bamboo copy";
+//
+//		let (offchain, offchain_state) = testing::TestOffchainExt::new();
+//		let (pool, pool_state) = testing::TestTransactionPoolExt::new();
+//		let keystore = KeyStore::new();
+//		keystore
+//			.write()
+//			.sr25519_generate_new(KEY_TYPE, Some(&format!("{}/hunter1", PHRASE)))
+//			.unwrap();
+//
+//		let storage = frame_system::GenesisConfig::default()
+//			.build_storage::<TestRuntime>()
+//			.unwrap();
+//
+//		let mut t = TestExternalities::from(storage);
+//		t.register_extension(OffchainExt::new(offchain));
+//		t.register_extension(TransactionPoolExt::new(pool));
+//		t.register_extension(KeystoreExt(keystore));
+//		t.execute_with(|| System::set_block_number(1));
+//		(t, pool_state, offchain_state)
+//	}
+//}
 
 #[test]
 fn test_chars_to_u128() {
@@ -207,7 +201,7 @@ fn test_chars_to_u128() {
 //	let test_account = "4d88dc5D528A33E4b8bE579e9476715F60060582".as_bytes();
 //	let mut test_account_byte_array = [0u8; 20];
 //	test_account_byte_array.copy_from_slice(&test_account[0..20]);
-//	
+//
 //	let mut accounts: Vec<[u8; 20]> = Vec::new();
 //	accounts.push(test_account_byte_array);
 //
@@ -311,13 +305,13 @@ fn test_parse_infura_balances_2() {
 // 	t.execute_with(|| {
 // 		// when
 // 		let num = 32;
-// 		let _acct: <TestRuntime as frame_system::Trait>::AccountId = Default::default();
+// 		let _acct: <TestRuntime as frame_system::Config>::AccountId = Default::default();
 // 		<Module<TestRuntime>>::fetch_github_info().unwrap();
 // 		// then
 // 		let tx = pool_state.write().transactions.pop().unwrap();
 // 		assert!(pool_state.read().transactions.is_empty());
 // 		let tx = TestExtrinsic::decode(&mut &*tx).unwrap();
 // 		assert_eq!(tx.signature, None);
-// 		assert_eq!(tx.call, <TestRuntime as Trait>::Call::record_price(num));
+// 		assert_eq!(tx.call, <TestRuntime as Config>::Call::record_price(num));
 // 	});
 // }
