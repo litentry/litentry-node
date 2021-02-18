@@ -29,6 +29,7 @@ use codec::{Codec, Encode, Decode};
 
 mod urls;
 mod utils;
+#[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
 #[cfg(test)]

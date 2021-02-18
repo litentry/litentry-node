@@ -1,4 +1,4 @@
-use crate::{Module, Trait, Error};
+use crate::{Module, Config};
 use frame_support::{
 	impl_outer_origin, impl_outer_event, parameter_types, weights::Weight,
 	traits::{OnFinalize, OnInitialize},
@@ -14,6 +14,17 @@ use sp_runtime::{
 };
 
 pub use crate::MAX_ETH_LINKS;
+
+pub struct PanicPalletInfo;
+
+impl frame_support::traits::PalletInfo for PanicPalletInfo {
+	fn index<P: 'static>() -> Option<usize> {
+		Some(0)
+	}
+	fn name<P: 'static>() -> Option<&'static str> {
+		Some("")
+	}
+}
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -36,40 +47,37 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 
-impl system::Trait for Test {
+impl system::Config for Test {
 	type BaseCallFilter = ();
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
 	type Origin = Origin;
-	type Call = ();
 	type Index = u32;
 	type BlockNumber = u32;
+	type Call = ();
 	type Hash = H256;
-	type Hashing = BlakeTwo256;
+	type Hashing = ::sp_runtime::traits::BlakeTwo256;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = generic::Header<Self::BlockNumber, BlakeTwo256>;
 	type Event = TestEvent;
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = MaximumBlockWeight;
-	type MaximumBlockLength = MaximumBlockLength;
-	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = ();
-	type PalletInfo = ();
+	type PalletInfo = PanicPalletInfo;
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type SS58Prefix = ();
 }
 
-impl Trait for Test {
+impl crate::Config for Test {
 	type Event = TestEvent;
 }
 
-pub type AccountLinker = Module<Test>;
-pub type AccountLinkerError = Error<Test>;
+pub type AccountLinker = crate::Module<Test>;
+pub type AccountLinkerError = crate::Error<Test>;
 pub type System = system::Module<Test>;
 
 // Build genesis storage according to the mock runtime.

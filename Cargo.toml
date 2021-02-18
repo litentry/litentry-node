@@ -1,6 +1,7 @@
 [workspace]
 members = [
     'node',
+    'pallets/template',
     'pallets/account-linker',
     'pallets/offchain-worker',
     'runtime',

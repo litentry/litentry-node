@@ -1,12 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Encode;
-use sp_std::prelude::*;
-use sp_io::crypto::secp256k1_ecdsa_recover_compressed;
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, ensure};
-use frame_system::{ensure_signed};
-use btc::base58::ToBase58;
-use btc::witness::WitnessProgram;
+/// Edit this file to define custom logic or remove it if it is not needed.
+/// Learn more about FRAME and the core library of Substrate FRAME pallets:
+/// https://substrate.dev/docs/en/knowledgebase/runtime/frame
+
+pub use pallet::*;
 
 #[cfg(test)]
 mod mock;
@@ -16,40 +14,70 @@ mod tests;
 
 mod btc;
 mod util_eth;
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-const EXPIRING_BLOCK_NUMBER_MAX: u32 = 10 * 60 * 24 * 30; // 30 days for 6s per block
+pub const EXPIRING_BLOCK_NUMBER_MAX: u32 = 10 * 60 * 24 * 30; // 30 days for 6s per block
 pub const MAX_ETH_LINKS: usize = 3;
 pub const MAX_BTC_LINKS: usize = 3;
 
-pub trait Trait: frame_system::Trait {
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-}
-
-enum BTCAddrType {
-	Legacy,
-	Segwit,
-}
-
-decl_storage! {
-	trait Store for Module<T: Trait> as AccountLinkerModule {
-		pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
-		pub BitcoinLink get(fn btc_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<Vec<u8>>;
+#[frame_support::pallet]
+pub mod pallet {
+	use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
+	use frame_system::pallet_prelude::*;
+	use sp_io::crypto::secp256k1_ecdsa_recover_compressed;
+	use crate::btc;
+	use crate::util_eth;
+	use crate::btc::witness::WitnessProgram;
+	use crate::btc::base58::ToBase58;
+	const EXPIRING_BLOCK_NUMBER_MAX: u32 = crate::EXPIRING_BLOCK_NUMBER_MAX; // 30 days for 6s per block
+	pub const MAX_ETH_LINKS: usize = crate::MAX_ETH_LINKS;
+	pub const MAX_BTC_LINKS: usize = crate::MAX_BTC_LINKS;
+	enum BTCAddrType {
+		Legacy,
+		Segwit,
 	}
-}
 
-decl_event!(
-	pub enum Event<T>
-	where
-		AccountId = <T as frame_system::Trait>::AccountId,
-	{
-		EthAddressLinked(AccountId, Vec<u8>),
-		BtcAddressLinked(AccountId, Vec<u8>),
+	/// Configure the pallet by specifying the parameters and types on which it depends.
+	#[pallet::config]
+	pub trait Config: frame_system::Config {
+		/// Because this pallet emits events, it depends on the runtime's definition of an event.
+		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 	}
-);
 
-decl_error! {
-	pub enum Error for Module<T: Trait> {
+	#[pallet::pallet]
+	#[pallet::generate_store(pub(super) trait Store)]
+	pub struct Pallet<T>(_);
+
+	// The pallet's runtime storage items.
+	// https://substrate.dev/docs/en/knowledgebase/runtime/storage
+	#[pallet::storage]
+	#[pallet::getter(fn something)]
+	// Learn more about declaring storage items:
+	// https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
+	pub type Something<T> = StorageValue<_, u32>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn eth_addresses)]
+	pub(super) type EthereumLink<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<[u8; 20]>, ValueQuery>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn btc_addresses)]
+	pub(super) type BitcoinLink<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<Vec<u8>>, ValueQuery>;
+
+	// Pallets use events to inform users when important changes are made.
+	// https://substrate.dev/docs/en/knowledgebase/runtime/events
+	#[pallet::event]
+	#[pallet::metadata(T::AccountId = "AccountId")]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		EthAddressLinked(T::AccountId, Vec<u8>),
+		BtcAddressLinked(T::AccountId, Vec<u8>),
+	}
+	
+	// Errors inform users that something went wrong.
+	#[pallet::error]
+	pub enum Error<T> {
 		EcdsaRecoverFailure,
 		LinkRequestExpired,
 		UnexpectedAddress,
@@ -59,21 +87,19 @@ decl_error! {
 		InvalidBTCAddressLength,
 		InvalidExpiringBlockNumber,
 	}
-}
 
-decl_module! {
-	pub struct Module<T: Trait> for enum Call where
-		origin: T::Origin {
-		// Errors must be initialized if they are used by the pallet.
-		type Error = Error<T>;
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
-		// Events must be initialized if they are used by the pallet.
-		fn deposit_event() = default;
+	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
+	// These functions materialize as "extrinsics", which are often compared to transactions.
+	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+	#[pallet::call]
+	impl<T:Config> Pallet<T> {
 
-		/// separate sig to r, s, v because runtime only support array parameter with length <= 32
-		#[weight = 1]
+		#[pallet::weight(1)]
 		pub fn link_eth(
-			origin,
+			origin: OriginFor<T>,
 			account: T::AccountId,
 			index: u32,
 			addr_expected: [u8; 20],
@@ -81,7 +107,7 @@ decl_module! {
 			r: [u8; 32],
 			s: [u8; 32],
 			v: u8,
-		) -> dispatch::DispatchResult {
+		) -> DispatchResultWithPostInfo {
 
 			let _ = ensure_signed(origin)?;
 
@@ -123,16 +149,15 @@ decl_module! {
 			}
 
 			<EthereumLink<T>>::insert(account.clone(), addrs);
-			Self::deposit_event(RawEvent::EthAddressLinked(account, addr.to_vec()));
+			Self::deposit_event(Event::EthAddressLinked(account, addr.to_vec()));
 
-			Ok(())
+			Ok(().into())
 
 		}
 
-		/// separate sig to r, s, v because runtime only support array parameter with length <= 32
-		#[weight = 1]
+		#[pallet::weight(1)]
 		pub fn link_btc(
-			origin,
+			origin: OriginFor<T>,
 			account: T::AccountId,
 			index: u32,
 			addr_expected: Vec<u8>,
@@ -140,7 +165,7 @@ decl_module! {
 			r: [u8; 32],
 			s: [u8; 32],
 			v: u8,
-		) -> dispatch::DispatchResult {
+		) -> DispatchResultWithPostInfo {
 
 			let _ = ensure_signed(origin)?;
 
@@ -216,10 +241,10 @@ decl_module! {
 			}
 
 			<BitcoinLink<T>>::insert(account.clone(), addrs);
-			Self::deposit_event(RawEvent::BtcAddressLinked(account, addr));
+			Self::deposit_event(Event::BtcAddressLinked(account, addr));
 
-			Ok(())
-
+			Ok(().into())
 		}
+		
 	}
 }
