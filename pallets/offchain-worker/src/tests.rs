@@ -47,40 +47,47 @@ parameter_types! {
 	pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-// The TestRuntime implements two pallet/frame traits: system, and simple_event
-impl frame_system::Trait for TestRuntime {
+pub struct PanicPalletInfo;
+
+impl frame_support::traits::PalletInfo for PanicPalletInfo {
+	fn index<P: 'static>() -> Option<usize> {
+		Some(0)
+	}
+	fn name<P: 'static>() -> Option<&'static str> {
+		Some("")
+	}
+}
+
+impl system::Config for TestRuntime {
 	type BaseCallFilter = ();
+	type BlockWeights = ();
+	type BlockLength = ();
+	type DbWeight = ();
 	type Origin = Origin;
-	type Index = u64;
+	type Index = u32;
+	type BlockNumber = u32;
 	type Call = ();
-	type BlockNumber = u64;
 	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = sr25519::Public;
+	type Hashing = ::sp_runtime::traits::BlakeTwo256;
+	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
+	type Header = generic::Header<Self::BlockNumber, BlakeTwo256>;
 	type Event = TestEvent;
 	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type DbWeight = ();
-	type BlockExecutionWeight = ();
-	type ExtrinsicBaseWeight = ();
-	type MaximumExtrinsicWeight = MaximumBlockWeight;
-	type MaximumBlockLength = MaximumBlockLength;
-	type AvailableBlockRatio = AvailableBlockRatio;
 	type Version = ();
-	type PalletInfo = ();
-	type AccountData = pallet_balances::AccountData<u128>;
+	type PalletInfo = PanicPalletInfo;
+	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
+	type SS58Prefix = ();
 }
 
 parameter_types! {
 	pub const ExistentialDeposit: u128 = 500;
 }
 
-impl pallet_balances::Trait for TestRuntime {
+impl pallet_balances::Config for TestRuntime {
 	type MaxLocks = ();
 	/// The type for recording an account's balance.
 	type Balance = u128;
@@ -104,7 +111,7 @@ parameter_types! {
 	pub const OcwQueryReward: u128 = 1;
 }
 
-impl Trait for TestRuntime {
+impl crate::Config for TestRuntime {
 	type AuthorityId = crypto::TestAuthId;
 	type Call = Call<TestRuntime>;
 	type Event = TestEvent;
