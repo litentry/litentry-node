@@ -20,7 +20,7 @@ jobs:
     - name: Add wasm toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly
+        toolchain: nightly-2020-10-06
         target: wasm32-unknown-unknown
         override: true
     - name: Build
