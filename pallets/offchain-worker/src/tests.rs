@@ -21,9 +21,8 @@ use account_linker;
 use utils;
 use urls;
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
-type Block = frame_system::mocking::MockBlock<Test>;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -49,14 +48,14 @@ impl frame_system::Config for TestRuntime {
 	type BlockLength = ();
 	type DbWeight = ();
 	type Index = u64;
-	type Call = ();
+	type Call = Call;
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
 	type AccountId = sr25519::Public;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = TestEvent;
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
 	type PalletInfo = PalletInfo;
@@ -76,14 +75,14 @@ impl pallet_balances::Config for TestRuntime {
 	/// The type for recording an account's balance.
 	type Balance = u128;
 	/// The ubiquitous event type.
-	type Event = TestEvent;
+	type Event = Event;
 	type DustRemoval = ();
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = ();
 }
 
-pub type TestExtrinsic = TestXt<Call<TestRuntime>, ()>;
+pub type TestExtrinsic = TestXt<offchain_worker::Call<TestRuntime>, ()>;
 
 parameter_types! {
 	pub const UnsignedPriority: u64 = 100;
@@ -95,9 +94,9 @@ parameter_types! {
 	pub const OcwQueryReward: u128 = 1;
 }
 
-impl system::Config for TestRuntime {
+impl offchain_worker::Config for TestRuntime {
 	type AuthorityId = crypto::TestAuthId;
-	type Call = Call<TestRuntime>;
+	type Call = offchain_worker::Call<TestRuntime>;
 	type Event = Event;
 	type Balance = u128;
 	type QueryTaskRedundancy = QueryTaskRedundancy;
@@ -107,21 +106,21 @@ impl system::Config for TestRuntime {
 	type OcwQueryReward = OcwQueryReward;
 }
 
-impl offchain_worker::Config for TestRuntime {
+impl account_linker::Config for TestRuntime {
 	type Event = Event;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for TestRuntime
 where
-	Call<TestRuntime>: From<LocalCall>,
+	offchain_worker::Call<TestRuntime>: From<LocalCall>,
 {
 	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
-		call: Call<TestRuntime>,
+		call: offchain_worker::Call<TestRuntime>,
 		_public: <Signature as Verify>::Signer,
 		_account: <TestRuntime as frame_system::Config>::AccountId,
 		index: <TestRuntime as frame_system::Config>::Index,
 	) -> Option<(
-		Call<TestRuntime>,
+		offchain_worker::Call<TestRuntime>,
 		<TestExtrinsic as sp_runtime::traits::Extrinsic>::SignaturePayload,
 	)> {
 		Some((call, (index, ())))
@@ -135,13 +134,12 @@ impl frame_system::offchain::SigningTypes for TestRuntime {
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for TestRuntime
 where
-	Call<TestRuntime>: From<C>,
+	offchain_worker::Call<TestRuntime>: From<C>,
 {
-	type OverarchingCall = Call<TestRuntime>;
+	type OverarchingCall = offchain_worker::Call<TestRuntime>;
 	type Extrinsic = TestExtrinsic;
 }
 
-pub type System = frame_system::Module<TestRuntime>;
 pub type Balances = pallet_balances::Module<TestRuntime>;
 // pub type OffchainWorker = Module<TestRuntime>;
 

@@ -23,10 +23,11 @@ frame_support::construct_runtime!(
 		NodeBlock = Block,
 		UncheckedExtrinsic = UncheckedExtrinsic,
 	{
-		System: frame_system::{Module, Call, Storage, Event<T>},
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		AccountLinker: account_linker::{Module, Call, Storage, Event<T>},
 	}
 );
+
 parameter_types! {
 	pub const BlockHashCount: u32 = 250;
 	pub const SS58Prefix: u8 = 42;
@@ -38,7 +39,7 @@ impl system::Config for Test {
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
-	type Call = ();
+	type Call = Call;
 	type Index = u32;
 	type BlockNumber = u32;
 	type Hash = H256;
