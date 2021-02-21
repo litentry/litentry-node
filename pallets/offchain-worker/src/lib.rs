@@ -11,6 +11,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+// everything define in pallet mod must be public
+pub use pallet::*;
+
 // use sp_std::{prelude::*, fmt::Debug, collections::btree_map::{BTreeMap, Entry,}};
 // use core::{convert::TryInto,};
 // use frame_system::{
@@ -28,13 +31,16 @@
 use codec::{Codec, Encode, Decode};
 use sp_core::crypto::KeyTypeId;
 
-mod urls;
-mod utils;
+pub mod urls;
+pub mod utils;
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
 #[cfg(test)]
 mod tests;
+
+// #[cfg(test)]
+// mod tests;
 
 const TOKEN_SERVER_URL: &str = "http://127.0.0.1:4000";
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
@@ -114,11 +120,10 @@ pub mod pallet {
 		}
 
 		fn on_finalize(block_number: T::BlockNumber) {
-			let current_block_number = <frame_system::Module<T>>::block_number();
-			debug::info!("ocw on_finalize.{:?}.", current_block_number);
+			debug::info!("ocw on_finalize.{:?}.", block_number);
 
 			let query_session_length: usize = T::QuerySessionLength::get() as usize;
-			let index_in_session = TryInto::<usize>::try_into(current_block_number).map_or(query_session_length, |bn| bn % query_session_length);
+			let index_in_session = TryInto::<usize>::try_into(block_number).map_or(query_session_length, |bn| bn % query_session_length);
 			let last_block_number = query_session_length - 1;
 
 			// Clear claim at the first block of a session
@@ -669,7 +674,7 @@ pub mod pallet {
 		}
 
 		// Generic function to fetch balance for specific link type
-		fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest,
+		pub fn fetch_balances(wallet_accounts: Vec<[u8; 20]>, request: urls::HttpRequest,
 			parser: &dyn Fn(&str) -> Option<Vec<u128>>) -> Result<u128, Error<T>> {
 			// Return if no account linked
 			if wallet_accounts.len() == 0 {
