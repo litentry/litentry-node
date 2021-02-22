@@ -132,7 +132,6 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::metadata(T::AccountId = "AccountId", T::BlockNumber = "BlockNumber")]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		BalanceGot(T::AccountId, T::BlockNumber, Option<u128>, Option<u128>),
 	}

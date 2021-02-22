@@ -1,4 +1,3 @@
-use crate::{Module, Config};
 use frame_support::{
 	impl_outer_origin, impl_outer_event, parameter_types, weights::Weight,
 	traits::{OnFinalize, OnInitialize},

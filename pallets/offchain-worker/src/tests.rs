@@ -17,21 +17,9 @@
 
 use crate::*;
 use crate as pallet_offchain_worker;
-use std::sync::Arc;
-use codec::Decode;
-use frame_support::{assert_ok, parameter_types};
-use sp_core::{
-	H256,
-	offchain::{OffchainExt, TransactionPoolExt, testing},
-	sr25519::Signature,
-};
-
-use sp_keystore::{
-	{KeystoreExt, SyncCryptoStore},
-	testing::KeyStore,
-};
+use frame_support::parameter_types;
+use sp_core::{ H256, sr25519::Signature,};
 use sp_runtime::{
-	RuntimeAppPublic,
 	testing::{Header, TestXt},
 	traits::{
 		BlakeTwo256, IdentityLookup, Extrinsic as ExtrinsicT,
