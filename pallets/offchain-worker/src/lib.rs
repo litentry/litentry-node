@@ -13,21 +13,6 @@
 
 // everything define in pallet mod must be public
 pub use pallet::*;
-
-// use sp_std::{prelude::*, fmt::Debug, collections::btree_map::{BTreeMap, Entry,}};
-// use core::{convert::TryInto,};
-// use frame_system::{
-// 	ensure_signed,
-// 	offchain::{CreateSignedTransaction, Signer, AppCrypto, SendSignedTransaction,},
-// };
-// use frame_support::{
-// 	debug, dispatch, decl_module, decl_storage, decl_event, decl_error, Parameter, 
-// 	ensure, storage::IterableStorageMap, weights::Weight, storage::IterableStorageDoubleMap,
-// 	traits::{Currency, Imbalance, OnUnbalanced, Get},
-// };
-
-// use sp_runtime::offchain::{storage::StorageValueRef,};
-// use sp_runtime::traits::{AtLeast32BitUnsigned, Member, MaybeSerializeDeserialize,};
 use codec::{Codec, Encode, Decode};
 use sp_core::crypto::KeyTypeId;
 
@@ -38,9 +23,6 @@ pub mod benchmarking;
 
 #[cfg(test)]
 mod tests;
-
-// #[cfg(test)]
-// mod tests;
 
 const TOKEN_SERVER_URL: &str = "http://127.0.0.1:4000";
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ocw!");
@@ -92,7 +74,6 @@ pub mod pallet {
 	use sp_runtime::offchain::{storage::StorageValueRef,};
 	use sp_runtime::traits::{AtLeast32BitUnsigned, Member, MaybeSerializeDeserialize,};
 
-	type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	type PositiveImbalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
 
