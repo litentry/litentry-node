@@ -4,6 +4,7 @@ import { spawn, ChildProcess } from "child_process";
 import 'mocha';
 import { ApiPromise, Keyring, WsProvider } from "@polkadot/api";
 import { KeyringPair } from '@polkadot/keyring/types';
+//import  '@polkadot/types/interfaces/system'
 
 export const BINARY_PATH = `../target/debug/litentry-node`;
 export const APIKEY_SERVER_PATH = `../target/debug/litentry-token-server`;
@@ -125,7 +126,9 @@ export async function initApiPromise(wsProvider: WsProvider) {
 				v: "u64",
 				r: "H256",
 				s: "H256"
-			}
+			},
+      BlockWeights: "U256",
+      BlockLength: "U256",
 		}
   });
 
