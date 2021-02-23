@@ -1,5 +1,5 @@
 use frame_support::{
-	impl_outer_origin, impl_outer_event, parameter_types, weights::Weight,
+	parameter_types,
 	traits::{OnFinalize, OnInitialize},
 };
 use frame_system as system;
@@ -7,77 +7,62 @@ use crate as account_linker;
 use sp_core::H256;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup},
-	Perbill,
 	AccountId32,
 	generic,
 };
 
 pub use crate::MAX_ETH_LINKS;
 
-pub struct PanicPalletInfo;
-
-impl frame_support::traits::PalletInfo for PanicPalletInfo {
-	fn index<P: 'static>() -> Option<usize> {
-		Some(0)
-	}
-	fn name<P: 'static>() -> Option<&'static str> {
-		Some("")
-	}
-}
-
-impl_outer_origin! {
-	pub enum Origin for Test {}
-}
-
-impl_outer_event! {
-	pub enum TestEvent for Test {
-		system<T>,
-		account_linker<T>,
-	}
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
+frame_support::construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		AccountLinker: account_linker::{Module, Call, Storage, Event<T>},
+	}
+);
+
 parameter_types! {
 	pub const BlockHashCount: u32 = 250;
-	pub const MaximumBlockWeight: Weight = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+	pub const SS58Prefix: u8 = 42;
 }
 
 impl system::Config for Test {
 	type BaseCallFilter = ();
+	type Origin = Origin;
 	type BlockWeights = ();
 	type BlockLength = ();
 	type DbWeight = ();
-	type Origin = Origin;
+	type Call = Call;
 	type Index = u32;
 	type BlockNumber = u32;
-	type Call = ();
 	type Hash = H256;
-	type Hashing = ::sp_runtime::traits::BlakeTwo256;
+	type Hashing = BlakeTwo256;
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = generic::Header<Self::BlockNumber, BlakeTwo256>;
-	type Event = TestEvent;
+	type Event = Event;
 	type BlockHashCount = BlockHashCount;
 	type Version = ();
-	type PalletInfo = PanicPalletInfo;
+	type PalletInfo = PalletInfo;
 	type AccountData = ();
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
-	type SS58Prefix = ();
+	type SS58Prefix = SS58Prefix;
 }
 
-impl crate::Config for Test {
-	type Event = TestEvent;
+impl account_linker::Config for Test {
+	type Event = Event;
 }
 
-pub type AccountLinker = crate::Module<Test>;
-pub type AccountLinkerError = crate::Error<Test>;
-pub type System = system::Module<Test>;
+pub type AccountLinkerError = account_linker::Error<Test>;
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {

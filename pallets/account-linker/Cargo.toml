@@ -34,6 +34,7 @@ sp-core = { default-features = false, version = '3.0.0'}
 sp-runtime = { default-features = false, version = '3.0.0' }
 parity-crypto = {version = "0.4.0", features = ["publickey"] }
 bitcoin = { version = "0.25.2", features = ["rand"] }
+serde = { version = "1.0.119" }
 hex = "0.4.2"
 frame-benchmarking = {version = '3.0.0' }
 

@@ -12,13 +12,7 @@ type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::Accoun
 const SEED: u32 = 0;
 
 benchmarks!{
-    
-    _ {
-        let b in 1 .. 1000 => ();
-    }
     link_eth {
-
-		let b in ...;
         let caller = account("caller", 0, 0);
         let account_id: T::AccountId = account("Alice", 0, SEED);
 
@@ -29,10 +23,9 @@ benchmarks!{
         let s = [19, 118, 77, 20, 241, 238, 52, 206, 124, 232, 254, 37, 109, 69, 191, 253, 242, 19, 48, 32, 92, 134, 123, 2, 6, 223, 233, 225, 129, 41, 235, 116];
         let v: u8 = 28_u8;
             
-    }: _ (RawOrigin::Signed(caller), account_id.clone(), index, addr_expected, expiring_block_number.into(), r, s, v)
+    }:  link_eth(RawOrigin::Signed(caller), account_id.clone(), index, addr_expected, expiring_block_number.into(), r, s, v)
 
     link_btc {
-        let b in ...;
         let caller = account("caller", 0, 0);
         let account_id: T::AccountId = account("Alice", 0, SEED);
 
@@ -43,5 +36,5 @@ benchmarks!{
         let s = [41, 163, 172, 76, 129, 83, 66, 195, 126, 213, 207, 91, 186, 70, 255, 125, 111, 38, 123, 240, 178, 101, 22, 192, 133, 22, 245, 109, 50, 175, 225, 208];
         let v: u8 = 0_u8;
             
-    }: _ (RawOrigin::Signed(caller), account_id.clone(), index, addr_expected, expiring_block_number.into(), r, s, v)
+    }:  link_btc(RawOrigin::Signed(caller), account_id.clone(), index, addr_expected, expiring_block_number.into(), r, s, v)
 }
