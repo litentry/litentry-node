@@ -1,5 +1,5 @@
 [package]
-authors = ['Junius Zhou <junius@litentry.com>']
+authors = ['Litentry Dev']
 description = 'FRAME pallet template for defining custom runtime logic.'
 edition = '2018'
 homepage = 'https://litentry.com'

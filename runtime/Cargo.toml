@@ -1,5 +1,5 @@
 [package]
-authors = ['Junius Zhou <junius@litentry.com>']
+authors = ['Litentry Dev']
 edition = '2018'
 homepage = 'https://litentry.com'
 license = 'Unlicense'
