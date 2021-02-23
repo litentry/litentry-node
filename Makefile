@@ -38,11 +38,11 @@ benchmark-account-linker:
 	--execution=wasm  \
 	--wasm-execution=compiled \
 	--pallet pallet_account_linker \
-	--extrinsic link_btc \
+	--extrinsic link_eth \
 	--heap-pages=4096 \
 	--steps 20 \
 	--repeat 50 \
-	--output=./pallets/account_linker/src/weights.rs
+	--output=./pallets/account-linker/src/weights.rs
 
 benchmark-offchain-worker:
 	target/release/litentry-node benchmark \
