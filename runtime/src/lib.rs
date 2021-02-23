@@ -39,7 +39,6 @@ pub use frame_support::{
 	},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-// use pallet_transaction_payment::CurrencyAdapter;
 
 /// Import the account-linker pallet.
 pub use pallet_account_linker;
