@@ -22,8 +22,8 @@ const EXPIRING_BLOCK_NUMBER_MAX: u32 = 10 * 60 * 24 * 30; // 30 days for 6s per 
 pub const MAX_ETH_LINKS: usize = 3;
 pub const MAX_BTC_LINKS: usize = 3;
 
-pub trait Trait: frame_system::Trait {
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+pub trait Config: frame_system::Config {
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 }
 
 enum BTCAddrType {
@@ -32,7 +32,7 @@ enum BTCAddrType {
 }
 
 decl_storage! {
-	trait Store for Module<T: Trait> as AccountLinkerModule {
+	trait Store for Module<T: Config> as AccountLinkerModule {
 		pub EthereumLink get(fn eth_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<[u8; 20]>;
 		pub BitcoinLink get(fn btc_addresses): map hasher(blake2_128_concat) T::AccountId => Vec<Vec<u8>>;
 	}
@@ -41,7 +41,7 @@ decl_storage! {
 decl_event!(
 	pub enum Event<T>
 	where
-		AccountId = <T as frame_system::Trait>::AccountId,
+		AccountId = <T as frame_system::Config>::AccountId,
 	{
 		EthAddressLinked(AccountId, Vec<u8>),
 		BtcAddressLinked(AccountId, Vec<u8>),
@@ -49,7 +49,7 @@ decl_event!(
 );
 
 decl_error! {
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		EcdsaRecoverFailure,
 		LinkRequestExpired,
 		UnexpectedAddress,
@@ -62,7 +62,7 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where
+	pub struct Module<T: Config> for enum Call where
 		origin: T::Origin {
 		// Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
@@ -87,7 +87,7 @@ decl_module! {
 
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
-			ensure!((expiring_block_number - current_block_number) < T::BlockNumber::from(EXPIRING_BLOCK_NUMBER_MAX), 
+			ensure!((expiring_block_number - current_block_number) < T::BlockNumber::from(EXPIRING_BLOCK_NUMBER_MAX),
 				Error::<T>::InvalidExpiringBlockNumber);
 
 			let mut bytes = b"Link Litentry: ".encode();
@@ -146,7 +146,7 @@ decl_module! {
 
 			let current_block_number = <frame_system::Module<T>>::block_number();
 			ensure!(expiring_block_number > current_block_number, Error::<T>::LinkRequestExpired);
-			ensure!((expiring_block_number - current_block_number) < T::BlockNumber::from(EXPIRING_BLOCK_NUMBER_MAX), 
+			ensure!((expiring_block_number - current_block_number) < T::BlockNumber::from(EXPIRING_BLOCK_NUMBER_MAX),
 				Error::<T>::InvalidExpiringBlockNumber);
 
 			// TODO: we may enlarge this 2
@@ -187,7 +187,7 @@ decl_module! {
 				BTCAddrType::Legacy => {
 					btc::legacy::btc_addr_from_pk(&pk).to_base58()
 				},
-				// Native P2WPKH is a scriptPubKey of 22 bytes. 
+				// Native P2WPKH is a scriptPubKey of 22 bytes.
 				// It starts with a OP_0, followed by a canonical push of the keyhash (i.e. 0x0014{20-byte keyhash})
 				// keyhash is RIPEMD160(SHA256) of a compressed public key
 				// https://bitcoincore.org/en/segwit_wallet_dev/

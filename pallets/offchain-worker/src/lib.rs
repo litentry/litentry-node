@@ -18,7 +18,7 @@ use frame_system::{
 	offchain::{CreateSignedTransaction, Signer, AppCrypto, SendSignedTransaction,},
 };
 use frame_support::{
-	debug, dispatch, decl_module, decl_storage, decl_event, decl_error, Parameter, 
+	debug, dispatch, decl_module, decl_storage, decl_event, decl_error, Parameter,
 	ensure, storage::IterableStorageMap, weights::Weight, storage::IterableStorageDoubleMap,
 	traits::{Currency, Imbalance, OnUnbalanced, Get},
 };
@@ -68,14 +68,14 @@ pub struct QueryKey<AccountId> {
 }
 
 
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type PositiveImbalanceOf<T> =
-	<<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::PositiveImbalance;
+	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
 
-pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTransaction<Call<Self>> {
+pub trait Config: frame_system::Config + account_linker::Config + CreateSignedTransaction<Call<Self>> {
 	type Balance: Parameter + Member + AtLeast32BitUnsigned + Codec + Default + Copy +
 		MaybeSerializeDeserialize + Debug;
-	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 	type Call: From<Call<Self>>;
 	type AuthorityId: AppCrypto<Self::Public, Self::Signature>;
 	type QueryTaskRedundancy: Get<u32>;
@@ -84,12 +84,12 @@ pub trait Trait: frame_system::Trait + account_linker::Trait + CreateSignedTrans
 	type Currency: Currency<Self::AccountId>;
 	/// Handler for the unbalanced increment when rewarding (minting rewards)
 	type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
-	type OcwQueryReward: Get<<<Self as Trait>::Currency as Currency<<Self as frame_system::Trait>::AccountId>>::Balance>;
+	type OcwQueryReward: Get<<<Self as Config>::Currency as Currency<<Self as frame_system::Config>::AccountId>>::Balance>;
 }
 
 
 decl_storage! {
-	trait Store for Module<T: Trait> as OffchainWorkerModule {
+	trait Store for Module<T: Config> as OffchainWorkerModule {
 		/// Record how many balances stored for Litentry user
 		TotalClaims get(fn total_claims): u64;
 
@@ -111,8 +111,8 @@ decl_storage! {
 }
 
 decl_event!(
-	pub enum Event<T> where	AccountId = <T as frame_system::Trait>::AccountId,
-					BlockNumber = <T as frame_system::Trait>::BlockNumber, {
+	pub enum Event<T> where	AccountId = <T as frame_system::Config>::AccountId,
+					BlockNumber = <T as frame_system::Config>::BlockNumber, {
 		/// Event for account and its ethereum balance
 		BalanceGot(AccountId, BlockNumber, Option<u128>, Option<u128>),
 	}
@@ -120,7 +120,7 @@ decl_event!(
 
 // Errors inform users that something went wrong.
 decl_error! {
-	pub enum Error for Module<T: Trait> {
+	pub enum Error for Module<T: Config> {
 		/// Error number parsing.
 		InvalidNumber,
 		/// Account already in claim list.
@@ -139,7 +139,7 @@ decl_error! {
 }
 
 decl_module! {
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	pub struct Module<T: Config> for enum Call where origin: T::Origin {
 		// Errors must be initialized if they are used by the pallet.
 		type Error = Error<T>;
 
@@ -151,7 +151,7 @@ decl_module! {
 		const QuerySessionLength: u32 = T::QuerySessionLength::get();
 		const OcwQueryReward: BalanceOf<T> = T::OcwQueryReward::get();
 
-		// benchmark is 16 us in personal mac 
+		// benchmark is 16 us in personal mac
 		// Request offchain worker to get balance of linked external account
 		#[weight = T::DbWeight::get().writes(1) + 16_000_000]
 		pub fn asset_claim(origin,) -> dispatch::DispatchResult {
@@ -225,7 +225,7 @@ decl_module! {
 	}
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
 	// Main entry for ocw
 	fn query(block_number: T::BlockNumber, info: &urls::TokenInfo) {
 		// Get my ocw account for submit query result
