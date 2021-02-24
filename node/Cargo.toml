@@ -19,7 +19,6 @@ targets = ['x86_64-unknown-linux-gnu']
 substrate-build-script-utils = '3.0.0'
 
 [dependencies]
-funty = "1.1.0"
 jsonrpc-core = '15.0.0'
 structopt = '0.3.8'
 hex-literal = "0.3.1"
@@ -34,12 +33,12 @@ sc-basic-authorship = '0.9.0'
 sc-cli = { features = ['wasmtime'], version = '0.9.0' }
 sc-client-api = '3.0.0'
 sc-consensus = '0.9.0'
-sc-keystore = '3.0.0'
 sc-consensus-aura = '0.9.0'
 sc-executor = { features = ['wasmtime'], version = '0.9.0' }
 sc-finality-grandpa = '0.9.0'
 sc-rpc = '3.0.0'
 sc-rpc-api = '0.9.0'
+sc-keystore = '3.0.0'
 sc-service = { features = ['wasmtime'], version = '0.9.0' }
 sc-transaction-pool = '3.0.0'
 sp-api = '3.0.0'
