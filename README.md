@@ -1,5 +1,6 @@
 # Litentry Node
-[![Build Status](https://travis-ci.com/litentry/litentry-node.svg?branch=develop)](https://travis-ci.com/litentry/litentry-node)
+[![Actions Status](https://github.com/litentry/litentry-node/workflows/Rust/badge.svg)](https://github.com/litentry/litentry-node/actions)
+
 
 Litentry node built with Substrate.
 
