@@ -96,8 +96,8 @@ pub enum HttpRequest<'a> {
 }
 
 /// Store all API tokens for offchain worker to send request to website
-#[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
+#[serde(crate = "alt_serde")]
 pub struct TokenInfo {
 	/// API token for etherscan service
 	#[serde(deserialize_with = "de_string_to_bytes")]
@@ -111,8 +111,8 @@ pub struct TokenInfo {
 }
 
 /// Balances data embedded in etherscan response
-#[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
+#[serde(crate = "alt_serde")]
 pub struct EtherScanBalance {
 	/// Ethereum account
 	#[serde(deserialize_with = "de_string_to_bytes")]
@@ -123,8 +123,8 @@ pub struct EtherScanBalance {
 }
 
 /// Response data from etherscan
-#[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
+#[serde(crate = "alt_serde")]
 pub struct EtherScanResponse {
 	/// Http response status
 	#[serde(deserialize_with = "de_string_to_bytes")]
@@ -137,8 +137,8 @@ pub struct EtherScanResponse {
 }
 
 /// Balances data from Infura service
-#[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
+#[serde(crate = "alt_serde")]
 pub struct InfuraBalance {
 	/// Json RPV version
 	#[serde(deserialize_with = "de_string_to_bytes")]
@@ -151,8 +151,8 @@ pub struct InfuraBalance {
 }
 
 /// Response from Infura
-#[serde(crate = "alt_serde")]
 #[derive(Deserialize, Encode, Decode, Default)]
+#[serde(crate = "alt_serde")]
 pub struct InfuraResponse {
 	/// Response vector for several Ethreum account
 	pub response: Vec<InfuraBalance>,

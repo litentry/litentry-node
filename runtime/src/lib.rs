@@ -13,7 +13,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionValidity, TransactionSource},
 };
 use sp_runtime::traits::{
-	BlakeTwo256, Block as BlockT, IdentityLookup, Verify, IdentifyAccount, NumberFor, Saturating,
+	BlakeTwo256, Block as BlockT, IdentityLookup, Verify, IdentifyAccount, NumberFor,
 	SaturatedConversion,
 };
 use sp_api::impl_runtime_apis;
@@ -39,7 +39,6 @@ pub use frame_support::{
 	},
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-use pallet_transaction_payment::CurrencyAdapter;
 
 /// Import the account-linker pallet.
 pub use pallet_account_linker;

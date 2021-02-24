@@ -1,5 +1,5 @@
 [package]
-authors = ['Junius Zhou <junius@litentry.com>']
+authors = ['Litentry Dev']
 build = 'build.rs'
 description = 'A fresh FRAME-based Substrate node, ready for hacking.'
 edition = '2018'
@@ -7,7 +7,7 @@ homepage = 'https://substrate.dev'
 license = 'Unlicense'
 name = 'litentry-node'
 repository = 'https://github.com/litentry/litentry-node'
-version = '3.0.0'
+version = '0.0.1'
 
 [[bin]]
 name = 'litentry-node'
@@ -23,7 +23,7 @@ jsonrpc-core = '15.0.0'
 structopt = '0.3.8'
 hex-literal = "0.3.1"
 # local dependencies
-litentry-runtime = { path = '../runtime', version = '3.0.0' }
+litentry-runtime = { path = '../runtime', version = '0.0.1' }
 
 # Substrate dependencies
 frame-benchmarking = '3.0.0'

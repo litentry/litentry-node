@@ -1,12 +1,12 @@
 [package]
-authors = ['Junius Zhou <junius@litentry.com>']
+authors = ['Litentry Dev']
 description = 'FRAME pallet template for defining custom runtime logic.'
 edition = '2018'
 homepage = 'https://litentry.com'
 license = 'Unlicense'
 name = 'pallet-account-linker'
 repository = 'https://github.com/litentry/litentry-node'
-version = '3.0.0'
+version = '0.0.1'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']

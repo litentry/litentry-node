@@ -1,11 +1,11 @@
 [package]
-authors = ['Junius Zhou <junius@litentry.com>']
+authors = ['Litentry Dev']
 edition = '2018'
 homepage = 'https://litentry.com'
 license = 'Unlicense'
 name = 'litentry-runtime'
 repository = 'https://github.com/litentry/litentry-node/'
-version = '3.0.0'
+version = '0.0.1'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -25,8 +25,8 @@ hex-literal = { optional = true, version = '0.3.1' }
 serde = { features = ['derive'], optional = true, version = '1.0.119' }
 
 # local dependencies
-pallet-account-linker = { path = '../pallets/account-linker', default-features = false, version = '3.0.0' }
-pallet-offchain-worker = { path = '../pallets/offchain-worker', default-features = false, version = '3.0.0' }
+pallet-account-linker = { path = '../pallets/account-linker', default-features = false, version = '0.0.1' }
+pallet-offchain-worker = { path = '../pallets/offchain-worker', default-features = false, version = '0.0.1' }
 # Substrate dependencies
 frame-benchmarking = { default-features = false, optional = true, version = '3.0.0' }
 frame-executive = { default-features = false, version = '3.0.0' }
