@@ -1,14 +1,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use sp_runtime::{traits::{Verify, IdentifyAccount,}, MultiSignature};
-use sp_core::{sr25519, crypto::UncheckedInto,};
 use frame_benchmarking::{benchmarks, account};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
-use sp_runtime::AccountId32;
-type AccountPublic = <MultiSignature as Verify>::Signer;
-type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 const SEED: u32 = 0;
 
 benchmarks!{

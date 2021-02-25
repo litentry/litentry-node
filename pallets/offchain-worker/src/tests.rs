@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::*;
-use crate as pallet_offchain_worker;
+use crate as offchain_worker;
 use frame_support::parameter_types;
 use sp_core::{ H256, sr25519::Signature,};
 use sp_runtime::{
@@ -40,8 +40,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Module, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		AccountLinker: account_linker::{Module, Call, Storage, Event<T>},
-
-		Example: pallet_offchain_worker::{Module, Call, Storage, Event<T>,},
+		OffchainWorker: offchain_worker::{Module, Call, Storage, Event<T>,},
 	}
 );
 
@@ -130,7 +129,7 @@ parameter_types! {
 }
 
 impl Config for Test {
-	type AuthorityId = pallet_offchain_worker::crypto::TestAuthId;
+	type AuthorityId = offchain_worker::crypto::TestAuthId;
 	type Call = Call;
 	type Event = Event;
 	type Balance = u128;
