@@ -286,6 +286,7 @@ impl pallet_sudo::Config for Runtime {
 /// Configure the template pallet in pallets/template.
 impl pallet_account_linker::Config for Runtime {
 	type Event = Event;
+	type WeightInfo = pallet_account_linker::weights::SubstrateWeight<Runtime>;
 }
 
 // We need to define the Transaction signer for that using the Key definition
@@ -312,6 +313,7 @@ impl pallet_offchain_worker::Config for Runtime {
 	type Currency = Balances;
 	type Reward = ();
 	type OcwQueryReward = OcwQueryReward;
+	type WeightInfo = pallet_offchain_worker::weights::SubstrateWeight<Runtime>;
 }
 
 pub type SignedPayload = generic::SignedPayload<Call, SignedExtra>;
