@@ -34,27 +34,29 @@ build-benchmark:
 
 benchmark-account-linker:
 	target/release/litentry-node benchmark \
-	--chain dev \
+	--chain=dev \
 	--execution=wasm  \
 	--wasm-execution=compiled \
-	--pallet pallet_account_linker \
-	--extrinsic link_eth \
+	--pallet=pallet_account_linker \
+	--extrinsic=* \
 	--heap-pages=4096 \
-	--steps 20 \
-	--repeat 50 \
-	--output=./pallets/account-linker/src/weights.rs
+	--steps=20 \
+	--repeat=50 \
+	--output=./pallets/account-linker/src/weights.rs \
+	--template=./.maintain/frame-weight-template.hbs
 
 benchmark-offchain-worker:
 	target/release/litentry-node benchmark \
-	--chain dev \
+	--chain=dev \
 	--execution=wasm  \
 	--wasm-execution=compiled \
-	--pallet pallet_offchain_worker \
-	--extrinsic submit_balance \
+	--pallet=pallet_offchain_worker \
+	--extrinsic=* \
 	--heap-pages=4096 \
-	--steps 20 \
-	--repeat 50 \
-	--output=./pallets/offchain-worker/src/weights.rs
+	--steps=20 \
+	--repeat=50 \
+	--output=./pallets/offchain-worker/src/weights.rs \
+	--template=./.maintain/frame-weight-template.hbs
 
 fmt:
 	cargo fmt

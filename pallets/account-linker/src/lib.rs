@@ -11,6 +11,7 @@ mod tests;
 mod btc;
 mod util_eth;
 mod benchmarking;
+pub mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -23,6 +24,7 @@ pub mod pallet {
 	use frame_system::{ensure_signed};
 	use btc::base58::ToBase58;
 	use btc::witness::WitnessProgram;
+	use weights::WeightInfo;
 	pub const EXPIRING_BLOCK_NUMBER_MAX: u32 = 10 * 60 * 24 * 30; // 30 days for 6s per block
 	pub const MAX_ETH_LINKS: usize = 3;
 	pub const MAX_BTC_LINKS: usize = 3;
@@ -35,6 +37,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::event]
@@ -75,7 +78,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T:Config> Pallet<T> {
 
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::link_eth())]
 		pub fn link_eth(
 			origin: OriginFor<T>,
 			account: T::AccountId,
@@ -134,7 +137,7 @@ pub mod pallet {
 		}
 
 		/// separate sig to r, s, v because runtime only support array parameter with length <= 32
-		#[pallet::weight(1)]
+		#[pallet::weight(T::WeightInfo::link_btc())]
 		pub fn link_btc(
 			origin: OriginFor<T>,
 			account: T::AccountId,
