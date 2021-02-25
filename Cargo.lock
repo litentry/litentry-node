@@ -3373,7 +3373,6 @@ version = "0.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-benchmarking-cli",
- "funty",
  "hex-literal",
  "jsonrpc-core",
  "litentry-runtime",
