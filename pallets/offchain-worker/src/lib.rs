@@ -18,6 +18,8 @@ use sp_core::crypto::KeyTypeId;
 
 pub mod urls;
 pub mod utils;
+pub mod weights;
+
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
 
@@ -73,6 +75,7 @@ pub mod pallet {
 	use frame_support::{dispatch, traits::{Currency, OnUnbalanced, Imbalance},};
 	use sp_runtime::offchain::{storage::StorageValueRef,};
 	use sp_runtime::traits::{AtLeast32BitUnsigned, Member, MaybeSerializeDeserialize,};
+	use weights::WeightInfo;
 
 	type PositiveImbalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::PositiveImbalance;
@@ -91,6 +94,7 @@ pub mod pallet {
 		/// Handler for the unbalanced increment when rewarding (minting rewards)
 		type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
 		type OcwQueryReward: Get<<<Self as Config>::Currency as Currency<<Self as frame_system::Config>::AccountId>>::Balance>;
+		type WeightInfo: weights::WeightInfo;
 	}
 
 	#[pallet::hooks]
@@ -188,7 +192,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T:Config> Pallet<T> {
 
-		#[pallet::weight(1)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::asset_claim())]
 		pub fn asset_claim(origin: OriginFor<T>,) -> DispatchResultWithPostInfo {
 			let account = ensure_signed(origin)?;
 
@@ -200,7 +204,7 @@ pub mod pallet {
 			Ok(().into())
 		}
 
-		#[pallet::weight(1)]
+		#[pallet::weight(<T as pallet::Config>::WeightInfo::submit_balance())]
 		fn submit_balance(origin: OriginFor<T>, account: T::AccountId, block_number: T::BlockNumber, data_source: urls::DataSource, balance: u128)-> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
 

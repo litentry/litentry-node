@@ -120,6 +120,7 @@ impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for T
 
 impl account_linker::Config for Test {
 	type Event = Event;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -138,6 +139,7 @@ impl Config for Test {
 	type Currency = Balances;
 	type Reward = ();
 	type OcwQueryReward = OcwQueryReward;
+	type WeightInfo = ();
 }
 
 
