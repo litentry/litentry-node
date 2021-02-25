@@ -60,6 +60,7 @@ impl system::Config for Test {
 
 impl account_linker::Config for Test {
 	type Event = Event;
+	type WeightInfo = ();
 }
 
 pub type AccountLinkerError = account_linker::Error<Test>;
