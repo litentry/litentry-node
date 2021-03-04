@@ -25,8 +25,8 @@ hex-literal = { optional = true, version = '0.3.1' }
 serde = { features = ['derive'], optional = true, version = '1.0.119' }
 
 # local dependencies
-pallet-account-linker = { path = '../pallets/account-linker', default-features = false, version = '0.0.1' }
-pallet-offchain-worker = { path = '../pallets/offchain-worker', default-features = false, version = '0.0.1' }
+pallet-account-linker = { git = "https://github.com/litentry/litentry-account-linker", package = "pallet-account-linker", default-features = false, branch = "dev", version = '0.0.1' }
+pallet-offchain-worker = { git = "https://github.com/litentry/litentry-offchain-worker", package = "pallet-offchain-worker", default-features = false, branch = "dev", version = '0.0.1' }
 # Substrate dependencies
 frame-benchmarking = { default-features = false, optional = true, version = '3.0.0' }
 frame-executive = { default-features = false, version = '3.0.0' }
