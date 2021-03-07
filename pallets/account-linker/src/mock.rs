@@ -82,3 +82,11 @@ pub fn run_to_block(n: u32) {
         AccountLinker::on_initialize(System::block_number());
     }
 }
+
+pub fn events() -> Vec<Event> {
+	let evt = System::events().into_iter().map(|evt| evt.event).collect::<Vec<_>>();
+
+	System::reset_events();
+
+	evt
+}
