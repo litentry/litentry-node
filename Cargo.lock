@@ -3773,7 +3773,7 @@ dependencies = [
 [[package]]
 name = "pallet-account-linker"
 version = "0.0.1"
-source = "git+https://github.com/litentry/litentry-account-linker?branch=dev#ab54af1c88787e8be88f70b5bf84980c8693aac1"
+source = "git+https://github.com/litentry/litentry-pallets?branch=dev#6208c5068b5d86e6802bb7b90d869d732c69104b"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -3862,7 +3862,7 @@ dependencies = [
 [[package]]
 name = "pallet-offchain-worker"
 version = "0.0.1"
-source = "git+https://github.com/litentry/litentry-offchain-worker?branch=dev#8005891b1462f9d6abe2875dff86a3e4e811b74a"
+source = "git+https://github.com/litentry/litentry-pallets?branch=dev#6208c5068b5d86e6802bb7b90d869d732c69104b"
 dependencies = [
  "alt_serde",
  "frame-benchmarking",
