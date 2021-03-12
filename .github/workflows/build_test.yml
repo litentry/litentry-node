@@ -16,6 +16,10 @@ jobs:
     runs-on: self-hosted
 
     steps:
+    - name: Create issue test
+      uses: JasonEtco/create-an-issue@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
     - uses: actions/checkout@v2
     - uses: actions/setup-node@v2.1.4
     - name: Add wasm toolchain
@@ -36,10 +40,5 @@ jobs:
         cd ts-tests
         npm install 
         npm test
-    - name: Create issue on failure (for repository_dispatch only)   
-      if: github.event.action == 'integration-test-trigger' && failure() 
-      uses: JasonEtco/create-an-issue@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         
 
