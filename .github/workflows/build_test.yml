@@ -25,7 +25,10 @@ jobs:
         target: wasm32-unknown-unknown
         override: true
     - name: Build
-      run: cargo build
+      run: |
+        cargo update -p pallet-account-linker
+        cargo update -p pallet-offchain-worker
+        cargo build
     - name: Run unit tests
       run: cargo test --verbose
     - name: Run integration test
@@ -38,7 +41,5 @@ jobs:
       uses: JasonEtco/create-an-issue@v2
       env:
         GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-          #      run: |
-          #        echo "Test FAILED triggerred from '${{ github.event.client_payload.repository }}' by '${{ github.event.actor.display_login }}'" 
         
 
