@@ -3,8 +3,8 @@ name: Update Pallets
 on:
   repository_dispatch:
 
-    env:
-      CARGO_TERM_COLOR: always
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   create-pr:
