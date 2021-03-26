@@ -183,25 +183,16 @@ pub fn litentry_config() -> Result<ChainSpec, String> {
 			wasm_binary,
 			// Initial PoA authorities
 			vec![
+				// NOTE: sr25519 for aura, ed25519 for grandpa
 				// 49xBdg1G5MBrtPwPDK7Wv9WLjbRHZ71iRtAs3pRUPMDLVocf
 				(
 					hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].unchecked_into(),
-					hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].unchecked_into(),
+					hex!["1fee1034977207682a7c4553d48b7832bd8b3c830f9f8370e249371f03128f86"].unchecked_into(),
 				),
 				// 4Ackc6jWc31xiMdjPaDr7PzZCynKgi7im1Cc4Y2pRJcNvjo8
 				(
 					hex!["ba53195d0b128e94778f49c20933773ef9068ec322260d6991552cb078012a15"].unchecked_into(),
-					hex!["ba53195d0b128e94778f49c20933773ef9068ec322260d6991552cb078012a15"].unchecked_into(),
-				),
-				// 46ruwarJX4oNZNXQFUuDPvp61PwoH7t2bTVCHorsqE34fDS2
-				(
-					hex!["142f074ccc4a78a0cdc584713f689bf3ed8d4bb279f6161d0bc066c1b4aff418"].unchecked_into(),
-					hex!["142f074ccc4a78a0cdc584713f689bf3ed8d4bb279f6161d0bc066c1b4aff418"].unchecked_into(),
-				),
-				// 4BnqKkY6pE4c96p9rpyr4UFgEtqbnAHmaYbMvCwGNPBKAigR
-				(
-					hex!["ee3fab5285345a4551bd90df2c063a48cf9adb5a5f1310776b5e2a5747bbd12f"].unchecked_into(),
-					hex!["ee3fab5285345a4551bd90df2c063a48cf9adb5a5f1310776b5e2a5747bbd12f"].unchecked_into(),
+					hex!["78ad44d6dcf91bbe572d1b27c3eed4f4c237c703a7c70dea3a5b49eb5f885bae"].unchecked_into(),
 				),
 			],
 			// Sudo account
