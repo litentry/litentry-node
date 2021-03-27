@@ -184,25 +184,24 @@ pub fn litentry_config() -> Result<ChainSpec, String> {
 			// Initial PoA authorities
 			vec![
 				// NOTE: sr25519 for aura, ed25519 for grandpa
-				// 49xBdg1G5MBrtPwPDK7Wv9WLjbRHZ71iRtAs3pRUPMDLVocf
 				(
-					hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].unchecked_into(),
-					hex!["1fee1034977207682a7c4553d48b7832bd8b3c830f9f8370e249371f03128f86"].unchecked_into(),
+					hex!["6ee3d433c282f2da08157874cb88002713bce7e34d88218734ebde9184adc62b"].unchecked_into(),
+					hex!["1a5eb27b10e65006d1f11e95afef014fead6f76e1654433afdc850e42270b539"].unchecked_into(),
 				),
-				// 4Ackc6jWc31xiMdjPaDr7PzZCynKgi7im1Cc4Y2pRJcNvjo8
 				(
-					hex!["ba53195d0b128e94778f49c20933773ef9068ec322260d6991552cb078012a15"].unchecked_into(),
-					hex!["78ad44d6dcf91bbe572d1b27c3eed4f4c237c703a7c70dea3a5b49eb5f885bae"].unchecked_into(),
+					hex!["208da5421e97eaa93426f99ae56efcbebe9fb44628dbf19ab31dd649e1290a04"].unchecked_into(),
+					hex!["bd72634e87aa6fc31386449b73a2b5db3f7d3aacbbc6e8b46b225dc346ad43a8"].unchecked_into(),
 				),
 			],
 			// Sudo account
-			hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].into(),
+			hex!["6ee3d433c282f2da08157874cb88002713bce7e34d88218734ebde9184adc62b"].into(),
 			// Pre-funded accounts
 			vec![
-				hex!["9ce8c6f2c22502322fb29a1af5de753ce2c62e9eeb0a93efe1bd0ad56438e93a"].into(),
-				hex!["ba53195d0b128e94778f49c20933773ef9068ec322260d6991552cb078012a15"].into(),
-				hex!["142f074ccc4a78a0cdc584713f689bf3ed8d4bb279f6161d0bc066c1b4aff418"].into(),
-				hex!["ee3fab5285345a4551bd90df2c063a48cf9adb5a5f1310776b5e2a5747bbd12f"].into(),
+
+				hex!["6ee3d433c282f2da08157874cb88002713bce7e34d88218734ebde9184adc62b"].into(),
+				hex!["208da5421e97eaa93426f99ae56efcbebe9fb44628dbf19ab31dd649e1290a04"].into(),
+				hex!["4a2cdd9649970dfaa3659d8078e129ace1a4dd420df6351d7b38cca96268f93a"].into(),
+				hex!["b649b678664131da1576b90e81a2e3934d6cb82937cac9be62073f793f121e67"].into(),
 			],
 			true,
 		),
