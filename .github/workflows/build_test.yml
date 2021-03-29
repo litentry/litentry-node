@@ -5,7 +5,6 @@ on:
     branches: [ develop ]
   pull_request:
     branches: [ develop ]
-  repository_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+      with:
+        submodules: true
     - uses: actions/setup-node@v2.1.4
     - name: Add wasm toolchain
       uses: actions-rs/toolchain@v1
@@ -26,8 +27,6 @@ jobs:
         override: true
     - name: Build
       run: |
-        cargo update -p pallet-account-linker
-        cargo update -p pallet-offchain-worker
         cargo build
     - name: Run unit tests
       run: cargo test --verbose
@@ -36,10 +35,3 @@ jobs:
         cd ts-tests
         npm install 
         npm test
-    - name: Create issue on failure (for repository_dispatch only)   
-      if: github.event.action == 'integration-test-trigger' && failure() 
-      uses: JasonEtco/create-an-issue@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-

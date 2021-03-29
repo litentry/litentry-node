@@ -38,7 +38,11 @@ pub use frame_support::{
 		DispatchClass, IdentityFee, Weight,
 	},
 };
+use frame_system::{
+	EnsureRoot,
+};
 use frame_system::limits::{BlockLength, BlockWeights};
+use pallet_scheduler;
 
 /// Import the account-linker pallet.
 pub use pallet_account_linker;
@@ -251,6 +255,22 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+		RuntimeBlockWeights::get().max_block;
+	pub const MaxScheduledPerBlock: u32 = 50;
+}
+impl pallet_scheduler::Config for Runtime {
+	type Event = Event;
+	type Origin = Origin;
+	type PalletsOrigin = OriginCaller;
+	type Call = Call;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 	pub const ExistentialDeposit: u128 = 500;
 	pub const MaxLocks: u32 = 50;
 }
@@ -388,6 +408,7 @@ construct_runtime!(
 		Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
 		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: pallet_transaction_payment::{Module, Storage},
+		Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
 		Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 		// Include the custom logic from the template pallet in the runtime.
 		AccountLinkerModule: pallet_account_linker::{Module, Call, Storage, Event<T>},
