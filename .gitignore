@@ -22,3 +22,5 @@ tags
 # vscode configs
 .vscode/
 pallets/*
+.DS_Store
+
