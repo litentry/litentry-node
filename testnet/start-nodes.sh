@@ -1,3 +1,12 @@
+ECHO="echo"
+if [ `uname` = "Darwin" ]; then
+    echo "MacOSX system"
+    ECHO="echo"
+elif [ `uname` = "Linux" ]; then
+    echo "Linux system"
+    ECHO="echo -e"
+fi
+
 EXECUTOR=
 BINARY=litentry-node
 
@@ -12,12 +21,23 @@ elif [[ -f $CWD/target/debug/$BINARY ]]
 then
     EXECUTOR=$CWD/target/debug/$BINARY
 else
-    echo "No available binary found. Exiting..."
+    $ECHO "No available binary found. Exiting..."
     exit 1
 fi
 
 # 3. Execute
-echo "Exector: $EXECUTOR"
+$ECHO "Exector: $EXECUTOR"
+
+stopNodes() {
+    local numOfProcess=-1
+    while [ numOfProcess == 0 ]; do
+        pkill $BINARY
+        sleep 1
+        numOfProcess=`ps aux | grep $BINARY  | grep -v grep | wc -l`
+    done
+}
+# stop all nodes
+stopNodes
 
 getip() {
     local ip=
@@ -32,24 +52,30 @@ getip() {
             break
         fi
     done
-    echo $ip
+    $ECHO $ip
 }
 
 ip=$(getip)
-# echo "IP: $ip"
-echo "Starting node 01 ..."
+
+colorText() {
+    text=$1
+    NC='\033[0m'
+    color='\033[0;32m'
+    $ECHO "${color}${text}${NC}"
+}
+
+colorText "Starting node 01 ..."
 $EXECUTOR --chain litentry --rpc-external --ws-external --rpc-methods Unsafe --rpc-cors all --ws-port 9900 --port 30334 --rpc-port 9901 --validator &> /dev/null &
 
-seconds=5
-echo "Waiting $seconds seconds..."
-sleep $seconds
+sleep 3
 
-node_identity=`curl http://$ip:9901 -H "Content-Type:application/json;charset=utf-8" -d '{ "jsonrpc": "2.0", "id": 1, "method": "system_localPeerId",  "params": [] }' | jq -r '.result'`
-echo "Node identity: $node_identity"
+node_identity=`curl -s http://$ip:9901 -H "Content-Type:application/json;charset=utf-8" -d '{ "jsonrpc": "2.0", "id": 1, "method": "system_localPeerId",  "params": [] }' | jq -r '.result'`
+colorText "Node identity of node 01: $node_identity"
 
-echo "Starting node 02..."
+colorText "Starting node 02 ..."
 $EXECUTOR --chain litentry --rpc-external --ws-external --rpc-methods Unsafe --rpc-cors all --ws-port 9902 --port 30335 --rpc-port 9903 --validator -d /tmp/1 --bootnodes /ip4/$ip/tcp/30334/p2p/$node_identity &> /dev/null &
 
-seconds=5
-echo "Waiting $seconds seconds..."
-sleep $seconds
+sleep 3
+
+colorText "Running nodes:"
+ps aux|grep $BINARY | grep -v grep
