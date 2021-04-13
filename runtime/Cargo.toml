@@ -27,6 +27,8 @@ serde = { features = ['derive'], optional = true, version = '1.0.119' }
 # local dependencies
 pallet-account-linker = { git = "https://github.com/litentry/litentry-pallets", package = "pallet-account-linker", default-features = false, branch = "dev", version = '0.0.1' }
 pallet-offchain-worker = { git = "https://github.com/litentry/litentry-pallets", package = "pallet-offchain-worker", default-features = false, branch = "dev", version = '0.0.1' }
+pallet-identity = { git = 'https://github.com/litentry/litentry-pallets', package = 'pallet-identity', default-features = false, branch = 'dev', version = '3.0.0' }
+
 # Substrate dependencies
 frame-benchmarking = { default-features = false, optional = true, version = '3.0.0' }
 frame-executive = { default-features = false, version = '3.0.0' }
@@ -36,13 +38,18 @@ frame-system-benchmarking = { default-features = false, optional = true, version
 frame-system-rpc-runtime-api = { default-features = false, version = '3.0.0' }
 pallet-aura = { default-features = false, version = '3.0.0' }
 pallet-balances = { default-features = false, version = '3.0.0' }
+pallet-collective = { default-features = false, version = '3.0.0' }
+pallet-democracy = { default-features = false, version = "3.0.0" }
 pallet-grandpa = { default-features = false, version = '3.0.0' }
 pallet-randomness-collective-flip = { default-features = false, version = '3.0.0' }
+pallet-recovery = { default-features = false, version = '3.0.0' }
 pallet-scheduler = { default-features = false, version = '3.0.0' }
 pallet-sudo = { default-features = false, version = '3.0.0' }
+pallet-proxy = { default-features = false, version = '3.0.0' }
 pallet-timestamp = { default-features = false, version = '3.0.0' }
 pallet-transaction-payment = { default-features = false, version = '3.0.0' }
 pallet-transaction-payment-rpc-runtime-api = { default-features = false, version = '3.0.0' }
+pallet-treasury = { default-features = false, version = '3.0.0' }
 sp-api = { default-features = false, version = '3.0.0' }
 sp-block-builder = { default-features = false, version = '3.0.0' }
 sp-consensus-aura = { default-features = false, version = '0.9.0' }
@@ -65,9 +72,10 @@ runtime-benchmarks = [
     'frame-system/runtime-benchmarks',
     'pallet-balances/runtime-benchmarks',
     'pallet-timestamp/runtime-benchmarks',
-    'sp-runtime/runtime-benchmarks',
     'pallet-account-linker/runtime-benchmarks',
+    'pallet-identity/runtime-benchmarks',
     'pallet-offchain-worker/runtime-benchmarks',
+    'sp-runtime/runtime-benchmarks',
 ]
 std = [
     'codec/std',
@@ -76,17 +84,23 @@ std = [
     'frame-support/std',
     'frame-system/std',
     'frame-system-rpc-runtime-api/std',
+    'pallet-account-linker/std',
     'pallet-aura/std',
     'pallet-balances/std',
+    'pallet-collective/std',
+    'pallet-democracy/std',
     'pallet-grandpa/std',
+    'pallet-identity/std',
+    'pallet-offchain-worker/std',
     'pallet-randomness-collective-flip/std',
+    'pallet-proxy/std',
+    'pallet-recovery/std',
     "pallet-scheduler/std",
     'pallet-sudo/std',
-    'pallet-account-linker/std',
-    'pallet-offchain-worker/std',
     'pallet-timestamp/std',
     'pallet-transaction-payment/std',
     'pallet-transaction-payment-rpc-runtime-api/std',
+    'pallet-treasury/std',
     'sp-api/std',
     'sp-block-builder/std',
     'sp-consensus-aura/std',
