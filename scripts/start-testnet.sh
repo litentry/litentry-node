@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ECHO="echo"
 if [ `uname` = "Darwin" ]; then
     echo "MacOSX system"
@@ -9,10 +11,12 @@ fi
 
 EXECUTOR=
 BINARY=litentry-node
+CHAIN_SPEC=litentry
 
 # 1. Locate project workspace
 SCRIPT_DIR="$(cd -- "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P)"
 CWD=$(dirname $SCRIPT_DIR)
+
 # 2. Determine exector, prefer to execute release version
 if [[ -f $CWD/target/release/$BINARY ]]
 then
@@ -25,12 +29,17 @@ else
     exit 1
 fi
 
+# 2.1 Check *rust* env
+# 2.1 Check *rust* env
+. $SCRIPT_DIR/check-rust-env.sh || exit 1
+
 # 3. Execute
 $ECHO "Exector: $EXECUTOR"
 
 stopNodes() {
     local numOfProcess=-1
-    while [ numOfProcess == 0 ]; do
+    while [ "$numOfProcess" -ne "0" ]; do
+        echo "Killing $BINARY ..."
         pkill $BINARY
         sleep 1
         numOfProcess=`ps aux | grep $BINARY  | grep -v grep | wc -l`
