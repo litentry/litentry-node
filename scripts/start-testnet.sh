@@ -30,7 +30,6 @@ else
 fi
 
 # 2.1 Check *rust* env
-# 2.1 Check *rust* env
 . $SCRIPT_DIR/check-rust-env.sh || exit 1
 
 # 3. Execute
@@ -74,7 +73,7 @@ colorText() {
 }
 
 colorText "Starting node 01 ..."
-$EXECUTOR --chain litentry --rpc-external --ws-external --rpc-methods Unsafe --rpc-cors all --ws-port 9900 --port 30334 --rpc-port 9901 --validator &> /dev/null &
+$EXECUTOR --chain litentry --rpc-external --ws-external --rpc-methods Unsafe --rpc-cors all --ws-port 9900 --port 30334 --rpc-port 9901 --validator -d /tmp/1 &> /dev/null &
 
 sleep 3
 
@@ -82,7 +81,7 @@ node_identity=`curl -s http://$ip:9901 -H "Content-Type:application/json;charset
 colorText "Node identity of node 01: $node_identity"
 
 colorText "Starting node 02 ..."
-$EXECUTOR --chain litentry --rpc-external --ws-external --rpc-methods Unsafe --rpc-cors all --ws-port 9902 --port 30335 --rpc-port 9903 --validator -d /tmp/1 --bootnodes /ip4/$ip/tcp/30334/p2p/$node_identity &> /dev/null &
+$EXECUTOR --chain litentry --rpc-external --ws-external --rpc-methods Unsafe --rpc-cors all --ws-port 9902 --port 30335 --rpc-port 9903 --validator -d /tmp/2 --bootnodes /ip4/$ip/tcp/30334/p2p/$node_identity &> /dev/null &
 
 sleep 3
 
