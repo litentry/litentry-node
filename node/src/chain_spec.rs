@@ -2,7 +2,8 @@ use sp_core::{Pair, Public, sr25519, crypto::UncheckedInto,};
 // use hex_literal::hex;
 use litentry_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
-	SudoConfig, SystemConfig, WASM_BINARY, Signature
+	SudoConfig, SystemConfig, WASM_BINARY, Signature,
+	CouncilConfig, TechnicalCommitteeConfig, DemocracyConfig,
 };
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -136,6 +137,7 @@ fn testnet_genesis(
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 ) -> GenesisConfig {
+	let num_endowed_accounts = endowed_accounts.len();
 	GenesisConfig {
 		frame_system: Some(SystemConfig {
 			// Add Wasm runtime to storage.
@@ -156,6 +158,16 @@ fn testnet_genesis(
 			// Assign network admin rights.
 			key: root_key,
 		}),
+		pallet_democracy: Some(DemocracyConfig::default()),
+		pallet_collective_Instance1: Some(CouncilConfig::default()),
+		pallet_collective_Instance2: Some(TechnicalCommitteeConfig {
+			members: endowed_accounts.iter()
+				.take((num_endowed_accounts + 1) / 2)
+				.cloned()
+				.collect(),
+			phantom: Default::default(),
+		}),
+		pallet_treasury: Default::default(),
 	}
 }
 
