@@ -3,3 +3,5 @@
 .git/* !filter !diff
 testnet/*.json filter=git-crypt diff=git-crypt
 testnet/testnet-accounts.md filter=git-crypt diff=git-crypt
+scripts/testnet/*.json filter=git-crypt diff=git-crypt
+scripts/testnet/testnet-accounts.md filter=git-crypt diff=git-crypt
